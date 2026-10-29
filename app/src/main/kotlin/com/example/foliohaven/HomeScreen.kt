@@ -3,6 +3,7 @@ package com.example.foliohaven
 import android.content.res.Configuration
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -54,12 +56,33 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.foliohaven.ui.theme.BadgeEpub
+import com.example.foliohaven.ui.theme.BadgeMobi
+import com.example.foliohaven.ui.theme.BadgePdf
+import com.example.foliohaven.ui.theme.BadgeTxt
+import com.example.foliohaven.ui.theme.BorderCharcoal
+import com.example.foliohaven.ui.theme.BorderSubtle
+import com.example.foliohaven.ui.theme.CardSurface
 import com.example.foliohaven.ui.theme.FolioHavenComposeTheme
+import com.example.foliohaven.ui.theme.GoldFoilDeboss
+import com.example.foliohaven.ui.theme.InputSurface
+import com.example.foliohaven.ui.theme.PrimaryHover
+import com.example.foliohaven.ui.theme.PrimaryPressed
+import com.example.foliohaven.ui.theme.PrimarySubtle
+import com.example.foliohaven.ui.theme.PrimaryTerracotta
+import com.example.foliohaven.ui.theme.SuccessEmerald
+import com.example.foliohaven.ui.theme.SurfaceEspresso
+import com.example.foliohaven.ui.theme.TextLinen
+import com.example.foliohaven.ui.theme.TextMuted
+import com.example.foliohaven.ui.theme.TextParchment
 
 data class BookItem(
     val id: String,
@@ -72,6 +95,7 @@ data class BookItem(
     val currentPage: Int
 )
 
+// Archival Library Palette Grounded in replica/brand.md
 val sampleBooks = listOf(
     BookItem(
         id = "1",
@@ -79,7 +103,7 @@ val sampleBooks = listOf(
         author = "Arthur Conan Doyle",
         format = "EPUB",
         progress = 0.68f,
-        coverGradient = listOf(Color(0xFF1E3C72), Color(0xFF2A5298)),
+        coverGradient = listOf(Color(0xFF1E293B), Color(0xFF0F172A)), // Archival Navy
         totalPages = 280,
         currentPage = 190
     ),
@@ -89,7 +113,7 @@ val sampleBooks = listOf(
         author = "Leo Tolstoy",
         format = "PDF",
         progress = 0.32f,
-        coverGradient = listOf(Color(0xFF8E2DE2), Color(0xFF4A00E0)),
+        coverGradient = listOf(Color(0xFF451A20), Color(0xFF260D12)), // Archival Burgundy
         totalPages = 1225,
         currentPage = 392
     ),
@@ -99,7 +123,7 @@ val sampleBooks = listOf(
         author = "Dale Carnegie",
         format = "EPUB",
         progress = 1.0f,
-        coverGradient = listOf(Color(0xFF11998E), Color(0xFF38EF7D)),
+        coverGradient = listOf(Color(0xFF143022), Color(0xFF0B1F15)), // Archival Forest
         totalPages = 320,
         currentPage = 320
     ),
@@ -109,13 +133,26 @@ val sampleBooks = listOf(
         author = "Paulo Coelho",
         format = "EPUB",
         progress = 0.15f,
-        coverGradient = listOf(Color(0xFFFF8008), Color(0xFFFFC837)),
+        coverGradient = listOf(Color(0xFF6E280A), Color(0xFF451906)), // Archival Terracotta
         totalPages = 224,
         currentPage = 34
     )
 )
 
-val categoryList = listOf("Tất cả", "EPUB", "PDF", "Tiểu thuyết", "Kỹ năng sống", "Yêu thích")
+val categoryList = listOf("Tất cả sách", "EPUB", "PDF", "Tiểu thuyết", "Kỹ năng sống", "Yêu thích")
+
+fun getFormatBadgeColor(format: String): Color {
+    return when (format.uppercase()) {
+        "EPUB" -> BadgeEpub
+        "PDF" -> BadgePdf
+        "MOBI" -> BadgeMobi
+        else -> BadgeTxt
+    }
+}
+
+// ============================================================================
+// Vector Icons (Self-contained, 0 external icon dependencies)
+// ============================================================================
 
 @Composable
 fun HomeIcon(color: Color, modifier: Modifier = Modifier) {
@@ -236,13 +273,157 @@ fun MoreVertIcon(color: Color, modifier: Modifier = Modifier) {
     }
 }
 
+// ============================================================================
+// 3D Archival Book Cover (Realistic leather, spine crease & gold foil deboss)
+// ============================================================================
+
+@Composable
+fun ArchivalBookCover(
+    book: BookItem,
+    modifier: Modifier = Modifier,
+    isHero: Boolean = false
+) {
+    val badgeColor = getFormatBadgeColor(book.format)
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Brush.verticalGradient(book.coverGradient))
+            .border(1.dp, BorderCharcoal, RoundedCornerShape(8.dp))
+            .shadow(if (isHero) 6.dp else 4.dp, RoundedCornerShape(8.dp))
+    ) {
+        // 1. Subtle Diagonal Lighting Sheen
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawRect(
+                brush = Brush.linearGradient(
+                    colors = listOf(Color(0x22FFFFFF), Color(0x00FFFFFF)),
+                    start = Offset(0f, 0f),
+                    end = Offset(size.width, size.height)
+                )
+            )
+        }
+
+        // 2. 3D Spine Crease Gradient on Left Edge
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(if (isHero) 12.dp else 16.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            Color(0x99000000),
+                            Color(0x44000000),
+                            Color(0x11000000),
+                            Color(0x00000000)
+                        )
+                    )
+                )
+        )
+
+        // 3. Inner Gold Debossed Frame
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(if (isHero) 6.dp else 10.dp)
+                .border(1.dp, GoldFoilDeboss.copy(alpha = 0.45f), RoundedCornerShape(4.dp))
+                .padding(if (isHero) 6.dp else 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = if (isHero) book.title.take(3).uppercase() else book.title,
+                    color = TextParchment,
+                    fontFamily = FontFamily.Serif,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = if (isHero) 16.sp else 13.sp,
+                    maxLines = if (isHero) 1 else 3,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 16.sp,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .width(if (isHero) 24.dp else 32.dp)
+                        .height(1.5.dp)
+                        .background(GoldFoilDeboss.copy(alpha = 0.6f))
+                )
+                if (!isHero) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = book.author,
+                        color = GoldFoilDeboss.copy(alpha = 0.85f),
+                        fontFamily = FontFamily.Serif,
+                        fontStyle = FontStyle.Italic,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                        textAlign = TextAlign.Center,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        // 4. Format Tag
+        Surface(
+            shape = RoundedCornerShape(bottomStart = 6.dp),
+            color = badgeColor.copy(alpha = 0.9f),
+            modifier = Modifier.align(Alignment.TopEnd)
+        ) {
+            Text(
+                text = book.format,
+                color = Color.White,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        }
+
+        // 5. Bookmark Ribbon at Top
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 22.dp)
+                .width(9.dp)
+                .height(18.dp)
+                .background(PrimaryTerracotta)
+        )
+
+        // 6. Progress Bar on Bottom Edge
+        if (book.progress > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.5.dp)
+                    .align(Alignment.BottomCenter)
+                    .background(Color.Black.copy(alpha = 0.4f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(book.progress)
+                        .fillMaxHeight()
+                        .background(if (book.progress >= 1.0f) SuccessEmerald else PrimaryHover)
+                )
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Main Home Screen Composable
+// ============================================================================
+
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
     onBookClick: (BookItem) -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    var selectedCategory by remember { mutableStateOf("Tất cả") }
+    var selectedCategory by remember { mutableStateOf("Tất cả sách") }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -256,8 +437,8 @@ fun HomeScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { /* Thêm sách */ },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
+                containerColor = PrimaryTerracotta,
+                contentColor = Color.White,
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.shadow(8.dp, RoundedCornerShape(16.dp))
             ) {
@@ -265,9 +446,14 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    PlusIcon(color = MaterialTheme.colorScheme.onPrimary)
+                    PlusIcon(color = Color.White)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Thêm sách", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = "Thêm sách",
+                        fontFamily = FontFamily.SansSerif,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
                 }
             }
         }
@@ -278,15 +464,15 @@ fun HomeScreen(
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
         ) {
-            // 1. Top App Header
+            // 1. Top Brand Header
             FolioHavenTopBar()
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             // 2. Search Box
             SearchBarMock()
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             // 3. Category Filter Chips
             CategoryFilterRow(
@@ -295,7 +481,7 @@ fun HomeScreen(
                 onCategorySelected = { selectedCategory = it }
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             // 4. Hero Section: Đang đọc tiếp
             ContinueReadingHeroCard(
@@ -303,7 +489,7 @@ fun HomeScreen(
                 onClick = { onBookClick(sampleBooks[0]) }
             )
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(26.dp))
 
             // 5. Section: Kệ sách của bạn
             Row(
@@ -316,20 +502,23 @@ fun HomeScreen(
                 Text(
                     text = "Kệ sách của bạn",
                     style = MaterialTheme.typography.titleLarge,
+                    color = TextParchment,
                     fontWeight = FontWeight.Bold
                 )
                 TextButton(onClick = { /* Xem tất cả */ }) {
                     Text(
                         text = "Tất cả (${sampleBooks.size})",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold
+                        color = PrimaryHover,
+                        fontFamily = FontFamily.SansSerif,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 6. Horizontal Books Carousel
+            // 6. Horizontal Books Carousel with 3D Archival Covers
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -339,16 +528,20 @@ fun HomeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(26.dp))
 
             // 7. Reading Insights & Stats
             ReadingStatsSection()
 
             // Bottom spacing for FAB
-            Spacer(modifier = Modifier.height(80.dp))
+            Spacer(modifier = Modifier.height(84.dp))
         }
     }
 }
+
+// ============================================================================
+// Top Header Bar (Monogram 'F' logo, App Name & Offline Security Badge)
+// ============================================================================
 
 @Composable
 fun FolioHavenTopBar() {
@@ -363,13 +556,10 @@ fun FolioHavenTopBar() {
             Box(
                 modifier = Modifier
                     .size(42.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(10.dp))
                     .background(
                         Brush.linearGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.primaryContainer
-                            )
+                            listOf(PrimaryTerracotta, PrimaryHover)
                         )
                     ),
                 contentAlignment = Alignment.Center
@@ -377,7 +567,8 @@ fun FolioHavenTopBar() {
                 Text(
                     text = "F",
                     color = Color.White,
-                    fontSize = 22.sp,
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Black
                 )
             }
@@ -385,31 +576,31 @@ fun FolioHavenTopBar() {
             Column {
                 Text(
                     text = "FolioHaven",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = (-0.5).sp
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = TextParchment,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.3).sp
                 )
                 Text(
-                    text = "Chào mừng trở lại • Đọc sách mỗi ngày",
+                    text = "Thư viện đọc sách tĩnh tâm • Offline 100%",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline
+                    color = TextMuted
                 )
             }
         }
 
-        Row {
-            IconButton(
-                onClick = { /* Menu */ },
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                MoreVertIcon(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+        IconButton(
+            onClick = { /* Menu */ },
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(CardSurface)
+                .border(1.dp, BorderCharcoal, CircleShape)
+        ) {
+            MoreVertIcon(
+                color = TextLinen,
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }
@@ -420,23 +611,24 @@ fun SearchBarMock() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .height(52.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-        tonalElevation = 2.dp
+            .height(48.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = InputSurface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            SearchIcon(color = MaterialTheme.colorScheme.outline)
-            Spacer(modifier = Modifier.width(12.dp))
+            SearchIcon(color = TextMuted)
+            Spacer(modifier = Modifier.width(10.dp))
             Text(
                 text = "Tìm kiếm sách, tác giả, ghi chú...",
-                color = MaterialTheme.colorScheme.outline,
-                style = MaterialTheme.typography.bodyMedium
+                color = TextMuted,
+                fontFamily = FontFamily.SansSerif,
+                fontSize = 13.sp
             )
         }
     }
@@ -459,18 +651,20 @@ fun CategoryFilterRow(
             val isSelected = cat == selectedCategory
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        if (isSelected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.surfaceVariant
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isSelected) PrimaryTerracotta else CardSurface)
+                    .border(
+                        1.dp,
+                        if (isSelected) PrimaryHover else BorderCharcoal,
+                        RoundedCornerShape(8.dp)
                     )
                     .clickable { onCategorySelected(cat) }
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 14.dp, vertical = 7.dp)
             ) {
                 Text(
                     text = cat,
-                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isSelected) Color.White else TextLinen,
+                    fontFamily = FontFamily.SansSerif,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                 )
@@ -489,13 +683,12 @@ fun ContinueReadingHeroCard(
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
             .clickable { onClick() },
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = CardSurface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -504,30 +697,31 @@ fun ContinueReadingHeroCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
+                            .size(7.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF4CAF50))
+                            .background(SuccessEmerald)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "ĐANG ĐỌC TIẾP",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        letterSpacing = 1.sp
+                        color = PrimaryHover,
+                        letterSpacing = 0.8.sp
                     )
                 }
 
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    shape = RoundedCornerShape(6.dp),
+                    color = PrimarySubtle,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryHover.copy(alpha = 0.4f))
                 ) {
                     Text(
                         text = book.format,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = PrimaryHover
                     )
                 }
             }
@@ -535,34 +729,12 @@ fun ContinueReadingHeroCard(
             Spacer(modifier = Modifier.height(14.dp))
 
             Row(modifier = Modifier.fillMaxWidth()) {
-                // Book Cover Thumbnail
-                Box(
-                    modifier = Modifier
-                        .size(width = 68.dp, height = 98.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Brush.verticalGradient(book.coverGradient))
-                        .shadow(4.dp, RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(6.dp)
-                    ) {
-                        Text(
-                            text = book.title.take(2).uppercase(),
-                            color = Color.White,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Box(
-                            modifier = Modifier
-                                .width(28.dp)
-                                .height(2.dp)
-                                .background(Color.White.copy(alpha = 0.6f))
-                        )
-                    }
-                }
+                // 3D Archival Cover Mini
+                ArchivalBookCover(
+                    book = book,
+                    modifier = Modifier.size(width = 72.dp, height = 104.dp),
+                    isHero = true
+                )
 
                 Spacer(modifier = Modifier.width(16.dp))
 
@@ -573,16 +745,18 @@ fun ContinueReadingHeroCard(
                     Column {
                         Text(
                             text = book.title,
+                            fontFamily = FontFamily.Serif,
+                            color = TextParchment,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(3.dp))
                         Text(
                             text = book.author,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline
+                            color = TextLinen
                         )
                     }
 
@@ -596,13 +770,13 @@ fun ContinueReadingHeroCard(
                         Text(
                             text = "Trang ${book.currentPage} / ${book.totalPages}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = TextMuted
                         )
                         Text(
                             text = "${(book.progress * 100).toInt()}%",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = PrimaryHover
                         )
                     }
 
@@ -612,29 +786,29 @@ fun ContinueReadingHeroCard(
                         progress = { book.progress },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp)),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.outlineVariant
+                            .height(5.dp)
+                            .clip(RoundedCornerShape(2.5.dp)),
+                        color = PrimaryTerracotta,
+                        trackColor = BorderCharcoal
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             Button(
                 onClick = onClick,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryTerracotta)
             ) {
-                PlayTriangle(color = MaterialTheme.colorScheme.onPrimary)
+                PlayTriangle(color = Color.White)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Tiếp tục đọc ngay",
-                    fontWeight = FontWeight.SemiBold
+                    fontFamily = FontFamily.SansSerif,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.5.sp
                 )
             }
         }
@@ -648,59 +822,28 @@ fun BookCardItem(
 ) {
     Card(
         modifier = Modifier
-            .width(140.dp)
+            .width(148.dp)
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = CardSurface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
-            // Book Cover
-            Box(
+            // 3D Archival Book Cover
+            ArchivalBookCover(
+                book = book,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(180.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Brush.verticalGradient(book.coverGradient)),
-                contentAlignment = Alignment.BottomStart
-            ) {
-                // Format Tag inside cover
-                Surface(
-                    shape = RoundedCornerShape(topEnd = 8.dp),
-                    color = Color.Black.copy(alpha = 0.55f),
-                    modifier = Modifier.align(Alignment.TopEnd)
-                ) {
-                    Text(
-                        text = book.format,
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                    )
-                }
-
-                if (book.progress > 0f) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(4.dp)
-                            .background(Color.Black.copy(alpha = 0.3f))
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(book.progress)
-                                .height(4.dp)
-                                .background(Color(0xFF4CAF50))
-                        )
-                    }
-                }
-            }
+                    .height(190.dp)
+            )
 
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
                 text = book.title,
+                fontFamily = FontFamily.Serif,
+                color = TextParchment,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -712,7 +855,7 @@ fun BookCardItem(
             Text(
                 text = book.author,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.outline,
+                color = TextLinen,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -722,7 +865,7 @@ fun BookCardItem(
             Text(
                 text = if (book.progress >= 1.0f) "Đã hoàn thành" else "${(book.progress * 100).toInt()}% đọc",
                 style = MaterialTheme.typography.labelSmall,
-                color = if (book.progress >= 1.0f) Color(0xFF388E3C) else MaterialTheme.colorScheme.primary,
+                color = if (book.progress >= 1.0f) SuccessEmerald else PrimaryHover,
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -735,13 +878,14 @@ fun ReadingStatsSection() {
         Text(
             text = "Thống kê & Thói quen đọc",
             style = MaterialTheme.typography.titleLarge,
+            color = TextParchment,
             fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(12.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             StatCard(
                 title = "Thời gian đọc",
@@ -774,24 +918,24 @@ fun StatCard(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        tonalElevation = 1.dp
+        shape = RoundedCornerShape(12.dp),
+        color = CardSurface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Text(text = icon, fontSize = 20.sp)
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = value,
-                fontSize = 17.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = PrimaryHover
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.outline,
+                color = TextMuted,
                 fontSize = 11.sp
             )
         }
@@ -804,51 +948,60 @@ fun FolioHavenBottomBar(
     onTabSelected: (Int) -> Unit
 ) {
     NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 6.dp
+        containerColor = SurfaceEspresso,
+        tonalElevation = 0.dp,
+        modifier = Modifier.border(
+            width = 1.dp,
+            color = BorderCharcoal,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+        )
     ) {
         NavigationBarItem(
             selected = selectedTab == 0,
             onClick = { onTabSelected(0) },
-            icon = { HomeIcon(color = if (selectedTab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) },
-            label = { Text("Trang chủ") },
+            icon = { HomeIcon(color = if (selectedTab == 0) PrimaryHover else TextMuted) },
+            label = { Text("Trang chủ", fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = MaterialTheme.colorScheme.primary,
-                selectedTextColor = MaterialTheme.colorScheme.primary,
-                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                selectedIconColor = PrimaryHover,
+                selectedTextColor = PrimaryHover,
+                unselectedTextColor = TextMuted,
+                indicatorColor = PrimarySubtle
             )
         )
         NavigationBarItem(
             selected = selectedTab == 1,
             onClick = { onTabSelected(1) },
-            icon = { BookShelfIcon(color = if (selectedTab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) },
-            label = { Text("Thư viện") },
+            icon = { BookShelfIcon(color = if (selectedTab == 1) PrimaryHover else TextMuted) },
+            label = { Text("Thư viện", fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = MaterialTheme.colorScheme.primary,
-                selectedTextColor = MaterialTheme.colorScheme.primary,
-                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                selectedIconColor = PrimaryHover,
+                selectedTextColor = PrimaryHover,
+                unselectedTextColor = TextMuted,
+                indicatorColor = PrimarySubtle
             )
         )
         NavigationBarItem(
             selected = selectedTab == 2,
             onClick = { onTabSelected(2) },
-            icon = { BookmarkRibbon(color = if (selectedTab == 2) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) },
-            label = { Text("Dấu trang") },
+            icon = { BookmarkRibbon(color = if (selectedTab == 2) PrimaryHover else TextMuted) },
+            label = { Text("Dấu trang", fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = MaterialTheme.colorScheme.primary,
-                selectedTextColor = MaterialTheme.colorScheme.primary,
-                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                selectedIconColor = PrimaryHover,
+                selectedTextColor = PrimaryHover,
+                unselectedTextColor = TextMuted,
+                indicatorColor = PrimarySubtle
             )
         )
         NavigationBarItem(
             selected = selectedTab == 3,
             onClick = { onTabSelected(3) },
-            icon = { MoreVertIcon(color = if (selectedTab == 3) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) },
-            label = { Text("Khác") },
+            icon = { MoreVertIcon(color = if (selectedTab == 3) PrimaryHover else TextMuted) },
+            label = { Text("Khác", fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = MaterialTheme.colorScheme.primary,
-                selectedTextColor = MaterialTheme.colorScheme.primary,
-                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                selectedIconColor = PrimaryHover,
+                selectedTextColor = PrimaryHover,
+                unselectedTextColor = TextMuted,
+                indicatorColor = PrimarySubtle
             )
         )
     }
