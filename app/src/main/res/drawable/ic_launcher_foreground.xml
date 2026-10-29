@@ -5,43 +5,30 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Ambient Glow behind Monogram -->
-    <path
-        android:fillColor="#33C2410C"
-        android:pathData="M54,54m-26,0a26,26 0,1 1,52 0a26,26 0,1 1,-52 0" />
+    <!-- Concept 1 (FH Monogram 2D Flat - 0% Gradient) -->
 
-    <!-- Left Spine & Ribbon (Vertical stem of 'F') -->
+    <!-- Left Column: Spine of 'F' with ribbon tail (Solid Terracotta #C2410C) -->
     <path
         android:fillColor="#C2410C"
-        android:pathData="M35,28 L46,28 A2,2 0 0 1 48,30 L48,78 L41,72 L35,78 Z" />
+        android:pathData="M28,24 L40,24 L40,78 L34,72 L28,78 Z" />
 
-    <!-- Gold Foil Spine Edge -->
-    <path
-        android:fillColor="#D4AF37"
-        android:pathData="M35,28 L37.5,28 L37.5,75 L35,78 Z" />
-
-    <!-- Upper Page Wing (Top Bar of 'F') -->
+    <!-- Top Arm of 'F' (Solid Warm Orange #EA580C) -->
     <path
         android:fillColor="#EA580C"
-        android:pathData="M48,30 C54,29 64,28 75,33 C78,34 78,37 76,39 C64,46 54,44 48,43 Z" />
+        android:pathData="M40,24 L59,24 C61,24 62,25.5 62,27.5 L62,32.5 C62,34.5 61,36 59,36 L40,36 Z" />
 
-    <!-- Gold Leaf Upper Border -->
-    <path
-        android:fillColor="#D4AF37"
-        android:pathData="M48,30 C54,29 64,28 75,33 L73,34 C63,30 53,30 48,31.5 Z" />
-
-    <!-- Mid Page Wing (Middle Bar of 'F') -->
+    <!-- Middle Connecting Crossbar (Completes 'F' and bridges to form 'H') -->
     <path
         android:fillColor="#C2410C"
-        android:pathData="M48,50 C53,49 61,48 69,52 C71,53 72,55 70,57 C61,62 53,60 48,59 Z" />
+        android:pathData="M40,45 L62,45 L62,55 L40,55 Z" />
 
-    <!-- Gold Leaf Mid Border -->
+    <!-- Right Column: Right Pillar of 'H' (Solid Warm Parchment #FAF7F2) -->
+    <path
+        android:fillColor="#FAF7F2"
+        android:pathData="M62,24 L74,24 L74,78 L68,72 L62,78 Z" />
+
+    <!-- Architectural Gold Haven Accent at Top Center -->
     <path
         android:fillColor="#D4AF37"
-        android:pathData="M48,50 C53,49 61,48 69,52 L68,53 C60,50 53,50 48,51 Z" />
-
-    <!-- Foundation Arch -->
-    <path
-        android:fillColor="#D4AF37"
-        android:pathData="M35,83 C48,80 58,80 77,87 C78,87.5 77.5,88.5 76,88.5 C58,83.5 48,83.5 35,86 Z" />
+        android:pathData="M47,19 L55,19 A1,1 0 0 1 56,20 L56,20.5 A1,1 0 0 1 55,21.5 L47,21.5 A1,1 0 0 1 46,20.5 L46,20 A1,1 0 0 1 47,19 Z" />
 </vector>

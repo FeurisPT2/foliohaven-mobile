@@ -557,18 +557,15 @@ fun FolioHavenTopBar() {
                 modifier = Modifier
                     .size(42.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(PrimaryTerracotta, PrimaryHover)
-                        )
-                    ),
+                    .background(PrimaryTerracotta)
+                    .border(1.dp, BorderCharcoal, RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "F",
+                    text = "FH",
                     color = Color.White,
                     fontFamily = FontFamily.Serif,
-                    fontSize = 24.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Black
                 )
             }
