@@ -1,4 +1,4 @@
-package com.example.foliohaven
+﻿package com.example.foliohaven
 
 import android.content.res.Configuration
 import androidx.compose.foundation.Canvas
@@ -561,7 +561,7 @@ fun FolioHavenTopBar() {
                 contentAlignment = Alignment.Center
             ) {
                 androidx.compose.foundation.Image(
-                    painter = androidx.compose.ui.res.painterResource(id = R.mipmap.ic_launcher),
+                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_foliohaven_logo),
                     contentDescription = "FolioHaven Logo",
                     modifier = Modifier.size(42.dp)
                 )
