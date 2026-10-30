@@ -557,16 +557,13 @@ fun FolioHavenTopBar() {
                 modifier = Modifier
                     .size(42.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(PrimaryTerracotta)
                     .border(1.dp, BorderCharcoal, RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "FH",
-                    color = Color.White,
-                    fontFamily = FontFamily.Serif,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(id = R.mipmap.ic_launcher),
+                    contentDescription = "FolioHaven Logo",
+                    modifier = Modifier.size(42.dp)
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
