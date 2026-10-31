@@ -1,6 +1,9 @@
-﻿package com.example.foliohaven
+package com.example.foliohaven
 
 import android.content.res.Configuration
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,11 +22,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -37,14 +45,18 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,16 +66,24 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.foliohaven.data.db.FolioHavenDbHelper
+import com.example.foliohaven.data.model.BookRecord
+import com.example.foliohaven.data.repository.BookRepository
+import com.example.foliohaven.ui.reader.getHighlightColor
 import com.example.foliohaven.ui.theme.BadgeEpub
 import com.example.foliohaven.ui.theme.BadgeMobi
 import com.example.foliohaven.ui.theme.BadgePdf
@@ -71,6 +91,7 @@ import com.example.foliohaven.ui.theme.BadgeTxt
 import com.example.foliohaven.ui.theme.BorderCharcoal
 import com.example.foliohaven.ui.theme.BorderSubtle
 import com.example.foliohaven.ui.theme.CardSurface
+import com.example.foliohaven.ui.theme.CardSurfaceHover
 import com.example.foliohaven.ui.theme.FolioHavenComposeTheme
 import com.example.foliohaven.ui.theme.GoldFoilDeboss
 import com.example.foliohaven.ui.theme.InputSurface
@@ -83,6 +104,7 @@ import com.example.foliohaven.ui.theme.SurfaceEspresso
 import com.example.foliohaven.ui.theme.TextLinen
 import com.example.foliohaven.ui.theme.TextMuted
 import com.example.foliohaven.ui.theme.TextParchment
+import kotlinx.coroutines.launch
 
 data class BookItem(
     val id: String,
@@ -95,51 +117,18 @@ data class BookItem(
     val currentPage: Int
 )
 
-// Archival Library Palette Grounded in replica/brand.md
-val sampleBooks = listOf(
-    BookItem(
-        id = "1",
-        title = "Sherlock Holmes: The Sign of Four",
-        author = "Arthur Conan Doyle",
-        format = "EPUB",
-        progress = 0.68f,
-        coverGradient = listOf(Color(0xFF1E293B), Color(0xFF0F172A)), // Archival Navy
-        totalPages = 280,
-        currentPage = 190
-    ),
-    BookItem(
-        id = "2",
-        title = "Chiến Tranh và Hòa Bình",
-        author = "Leo Tolstoy",
-        format = "PDF",
-        progress = 0.32f,
-        coverGradient = listOf(Color(0xFF451A20), Color(0xFF260D12)), // Archival Burgundy
-        totalPages = 1225,
-        currentPage = 392
-    ),
-    BookItem(
-        id = "3",
-        title = "Đắc Nhân Tâm",
-        author = "Dale Carnegie",
-        format = "EPUB",
-        progress = 1.0f,
-        coverGradient = listOf(Color(0xFF143022), Color(0xFF0B1F15)), // Archival Forest
-        totalPages = 320,
-        currentPage = 320
-    ),
-    BookItem(
-        id = "4",
-        title = "Nhà Giả Kim (The Alchemist)",
-        author = "Paulo Coelho",
-        format = "EPUB",
-        progress = 0.15f,
-        coverGradient = listOf(Color(0xFF6E280A), Color(0xFF451906)), // Archival Terracotta
-        totalPages = 224,
-        currentPage = 34
-    )
+fun BookRecord.toBookItem(): BookItem = BookItem(
+    id = id.toString(),
+    title = title,
+    author = author,
+    format = format,
+    progress = progressPercent,
+    coverGradient = listOf(Color(coverGradientStart), Color(coverGradientEnd)),
+    totalPages = totalPages,
+    currentPage = currentPage
 )
 
-val categoryList = listOf("Tất cả sách", "EPUB", "PDF", "Tiểu thuyết", "Kỹ năng sống", "Yêu thích")
+val categoryList = listOf("Tất cả sách", "EPUB", "PDF", "Tiểu thuyết", "Kỹ năng sống", "Kinh điển")
 
 fun getFormatBadgeColor(format: String): Color {
     return when (format.uppercase()) {
@@ -292,7 +281,6 @@ fun ArchivalBookCover(
             .border(1.dp, BorderCharcoal, RoundedCornerShape(8.dp))
             .shadow(if (isHero) 6.dp else 4.dp, RoundedCornerShape(8.dp))
     ) {
-        // 1. Subtle Diagonal Lighting Sheen
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawRect(
                 brush = Brush.linearGradient(
@@ -303,7 +291,6 @@ fun ArchivalBookCover(
             )
         }
 
-        // 2. 3D Spine Crease Gradient on Left Edge
         Box(
             modifier = Modifier
                 .fillMaxHeight()
@@ -320,7 +307,6 @@ fun ArchivalBookCover(
                 )
         )
 
-        // 3. Inner Gold Debossed Frame
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -367,7 +353,6 @@ fun ArchivalBookCover(
             }
         }
 
-        // 4. Format Tag
         Surface(
             shape = RoundedCornerShape(bottomStart = 6.dp),
             color = badgeColor.copy(alpha = 0.9f),
@@ -383,7 +368,6 @@ fun ArchivalBookCover(
             )
         }
 
-        // 5. Bookmark Ribbon at Top
         Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -393,7 +377,6 @@ fun ArchivalBookCover(
                 .background(PrimaryTerracotta)
         )
 
-        // 6. Progress Bar on Bottom Edge
         if (book.progress > 0f) {
             Box(
                 modifier = Modifier
@@ -420,14 +403,118 @@ fun ArchivalBookCover(
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    onBookClick: (BookItem) -> Unit = {}
+    bookRepository: BookRepository? = null,
+    onBookClick: (Long, Int) -> Unit = { _, _ -> },
+    onShowGreeting: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
     var selectedTab by remember { mutableIntStateOf(0) }
     var selectedCategory by remember { mutableStateOf("Tất cả sách") }
+    var searchQuery by remember { mutableStateOf("") }
+    var stats by remember { mutableStateOf(FolioHavenDbHelper.ReadingStats(0, 0, 0, 0)) }
+
+    // Bookmarks and Annotations state for Tab 2
+    var allBookmarks by remember { mutableStateOf<List<FolioHavenDbHelper.BookmarkWithBook>>(emptyList()) }
+    var allAnnotations by remember { mutableStateOf<List<FolioHavenDbHelper.AnnotationWithBook>>(emptyList()) }
+    var bookmarksTabFilter by remember { mutableStateOf("Tất cả") } // "Tất cả", "Dấu trang", "Ghi chú"
+
+    fun refreshBookmarksAndNotes() {
+        coroutineScope.launch {
+            allBookmarks = bookRepository?.getAllBookmarks() ?: emptyList()
+            allAnnotations = bookRepository?.getAllAnnotations() ?: emptyList()
+        }
+    }
+
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == 2) {
+            refreshBookmarksAndNotes()
+        }
+    }
+
+    // Collect repository state if available
+    val repoBooks by bookRepository?.booksFlow?.collectAsStateWithLifecycle(emptyList())
+        ?: remember { mutableStateOf(emptyList()) }
+
+    val displayBooks: List<BookItem> = repoBooks.map { it.toBookItem() }
+
+    LaunchedEffect(selectedCategory, searchQuery) {
+        bookRepository?.setCategoryFilter(selectedCategory)
+        bookRepository?.setSearchQuery(searchQuery)
+        val latestStats = bookRepository?.getReadingStats()
+        if (latestStats != null) stats = latestStats
+    }
+
+    // SAF File Picker
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let { selectedUri ->
+            coroutineScope.launch {
+                val result = bookRepository?.importBookFromUri(selectedUri)
+                if (result?.isSuccess == true) {
+                    val imported = result.getOrNull()
+                    snackbarHostState.showSnackbar("Đã thêm sách: ${imported?.title}")
+                } else {
+                    snackbarHostState.showSnackbar("Lỗi khi thêm sách: ${result?.exceptionOrNull()?.message}")
+                }
+            }
+        }
+    }
+
+    // SAF Export JSON
+    val exportJsonLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        uri?.let { destUri ->
+            coroutineScope.launch {
+                try {
+                    val json = bookRepository?.exportUserDataJson() ?: ""
+                    context.contentResolver.openOutputStream(destUri)?.use { out ->
+                        out.write(json.toByteArray(Charsets.UTF_8))
+                    }
+                    snackbarHostState.showSnackbar("Đã xuất bản sao lưu JSON thành công!")
+                } catch (e: Exception) {
+                    snackbarHostState.showSnackbar("Lỗi khi xuất tệp: ${e.message}")
+                }
+            }
+        }
+    }
+
+    // SAF Import JSON
+    val importJsonLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let { srcUri ->
+            coroutineScope.launch {
+                val repo = bookRepository ?: return@launch
+                try {
+                    val json = context.contentResolver.openInputStream(srcUri)?.use { inp ->
+                        inp.bufferedReader().readText()
+                    } ?: ""
+                    val res = repo.importUserDataJson(json)
+                    if (res.isSuccess) {
+                        val (bmCount, anCount) = res.getOrThrow()
+                        snackbarHostState.showSnackbar("Đã khôi phục $bmCount dấu trang và $anCount ghi chú thành công!")
+                        val latestStats = repo.getReadingStats()
+                        stats = latestStats
+                        refreshBookmarksAndNotes()
+                    } else {
+                        snackbarHostState.showSnackbar("Lỗi khi nhập tệp: ${res.exceptionOrNull()?.message}")
+                    }
+                } catch (e: Exception) {
+                    snackbarHostState.showSnackbar("Lỗi đọc tệp: ${e.message}")
+                }
+            }
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             FolioHavenBottomBar(
                 selectedTab = selectedTab,
@@ -436,7 +523,17 @@ fun HomeScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { /* Thêm sách */ },
+                onClick = {
+                    filePickerLauncher.launch(
+                        arrayOf(
+                            "application/epub+zip",
+                            "application/pdf",
+                            "text/plain",
+                            "application/octet-stream",
+                            "*/*"
+                        )
+                    )
+                },
                 containerColor = PrimaryTerracotta,
                 contentColor = Color.White,
                 shape = RoundedCornerShape(16.dp),
@@ -462,85 +559,658 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
         ) {
-            // 1. Top Brand Header
+            // Header
             FolioHavenTopBar()
 
-            Spacer(modifier = Modifier.height(14.dp))
+            when (selectedTab) {
+                0 -> {
+                    // TAB 0: HOME SHELF
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        SearchBar(query = searchQuery, onQueryChange = { searchQuery = it })
+                        Spacer(modifier = Modifier.height(14.dp))
+                        CategoryFilterRow(
+                            categories = categoryList,
+                            selectedCategory = selectedCategory,
+                            onCategorySelected = { selectedCategory = it }
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
 
-            // 2. Search Box
-            SearchBarMock()
+                        // Shelf Content
+                        if (displayBooks.isNotEmpty()) {
+                            // Hero card
+                            val heroBook = displayBooks.first()
+                            ContinueReadingHeroCard(
+                                book = heroBook,
+                                onClick = { onBookClick(heroBook.id.toLongOrNull() ?: 1L, heroBook.currentPage) }
+                            )
 
-            Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(26.dp))
 
-            // 3. Category Filter Chips
-            CategoryFilterRow(
-                categories = categoryList,
-                selectedCategory = selectedCategory,
-                onCategorySelected = { selectedCategory = it }
-            )
+                            // Shelf Section
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Kệ sách của bạn",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = TextParchment,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                TextButton(onClick = { selectedTab = 1 }) {
+                                    Text(
+                                        text = "Tất cả (${displayBooks.size})",
+                                        color = PrimaryHover,
+                                        fontFamily = FontFamily.SansSerif,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
 
-            Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
-            // 4. Hero Section: Đang đọc tiếp
-            ContinueReadingHeroCard(
-                book = sampleBooks[0],
-                onClick = { onBookClick(sampleBooks[0]) }
-            )
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 20.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                items(displayBooks) { book ->
+                                    BookCardItem(
+                                        book = book,
+                                        onClick = { onBookClick(book.id.toLongOrNull() ?: 1L, book.currentPage) }
+                                    )
+                                }
+                            }
+                        } else {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = CardSurface),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(28.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text("📚", fontSize = 42.sp)
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = "Kệ sách của bạn đang trống",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = TextParchment,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Nhấn nút \"+ Thêm sách\" bên dưới để nhập sách EPUB, PDF hoặc TXT từ thiết bị của bạn.",
+                                        color = TextMuted,
+                                        fontSize = 13.sp,
+                                        textAlign = TextAlign.Center,
+                                        lineHeight = 18.sp
+                                    )
+                                }
+                            }
+                        }
 
-            Spacer(modifier = Modifier.height(26.dp))
+                        Spacer(modifier = Modifier.height(26.dp))
+                        ReadingStatsSection(stats = stats)
+                        Spacer(modifier = Modifier.height(84.dp))
+                    }
+                }
 
-            // 5. Section: Kệ sách của bạn
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Kệ sách của bạn",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = TextParchment,
-                    fontWeight = FontWeight.Bold
-                )
-                TextButton(onClick = { /* Xem tất cả */ }) {
-                    Text(
-                        text = "Tất cả (${sampleBooks.size})",
-                        color = PrimaryHover,
-                        fontFamily = FontFamily.SansSerif,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp
-                    )
+                1 -> {
+                    // TAB 1: LIBRARY GRID
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        SearchBar(query = searchQuery, onQueryChange = { searchQuery = it })
+                        Spacer(modifier = Modifier.height(10.dp))
+                        CategoryFilterRow(
+                            categories = categoryList,
+                            selectedCategory = selectedCategory,
+                            onCategorySelected = { selectedCategory = it }
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Danh mục (${displayBooks.size} tác phẩm)",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = TextParchment,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
+                        )
+
+                        if (displayBooks.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("🔍", fontSize = 36.sp)
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Text(
+                                        text = if (searchQuery.isNotBlank()) "Không tìm thấy tác phẩm nào khớp với \"$searchQuery\"" else "Chưa có tác phẩm nào trong danh mục này",
+                                        color = TextMuted,
+                                        fontSize = 13.5.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(2),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(displayBooks) { book ->
+                                    BookCardItem(
+                                        book = book,
+                                        onClick = { onBookClick(book.id.toLongOrNull() ?: 1L, book.currentPage) },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                2 -> {
+                    // TAB 2: BOOKMARKS & NOTES
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 20.dp, vertical = 12.dp)
+                    ) {
+                        Text(
+                            text = "Dấu trang & Ghi chú của bạn",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = TextParchment,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Tất cả các đánh dấu trang và trích đoạn yêu thích được lưu cục bộ 100% trên thiết bị.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextMuted
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Filter Chips: "Tất cả", "Dấu trang", "Ghi chú"
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("Tất cả", "Dấu trang", "Ghi chú").forEach { filter ->
+                                val isSelected = bookmarksTabFilter == filter
+                                Surface(
+                                    shape = RoundedCornerShape(20.dp),
+                                    color = if (isSelected) PrimaryTerracotta else CardSurface,
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        if (isSelected) PrimaryTerracotta else BorderCharcoal
+                                    ),
+                                    modifier = Modifier.clickable { bookmarksTabFilter = filter }
+                                ) {
+                                    Text(
+                                        text = filter,
+                                        color = if (isSelected) Color.White else TextLinen,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        fontSize = 12.5.sp,
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        val showBookmarks = bookmarksTabFilter == "Tất cả" || bookmarksTabFilter == "Dấu trang"
+                        val showAnnotations = bookmarksTabFilter == "Tất cả" || bookmarksTabFilter == "Ghi chú"
+
+                        if (allBookmarks.isEmpty() && allAnnotations.isEmpty()) {
+                            Card(
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = CardSurface),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 16.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text("📖", fontSize = 32.sp)
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = "Chưa có dấu trang hay ghi chú nào",
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextParchment,
+                                        fontSize = 15.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "Khi đọc sách, bạn hãy bấm biểu tượng ruy băng để đánh dấu trang hoặc cây bút dạ quang để lưu trích dẫn và ghi chú nhé!",
+                                        color = TextMuted,
+                                        fontSize = 13.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                contentPadding = PaddingValues(bottom = 80.dp)
+                            ) {
+                                if (showBookmarks) {
+                                    items(allBookmarks) { bm ->
+                                        Card(
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = CardDefaults.cardColors(containerColor = CardSurface),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Column(modifier = Modifier.padding(14.dp)) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.weight(1f)
+                                                    ) {
+                                                        BookmarkRibbon(color = PrimaryTerracotta)
+                                                        Spacer(modifier = Modifier.width(10.dp))
+                                                        Column {
+                                                            Text(
+                                                                text = bm.bookTitle,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = TextParchment,
+                                                                fontSize = 13.5.sp,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                            Text(
+                                                                text = "Dấu trang tại Trang ${bm.pageNumber}",
+                                                                color = PrimaryHover,
+                                                                fontSize = 11.5.sp,
+                                                                fontWeight = FontWeight.SemiBold
+                                                            )
+                                                        }
+                                                    }
+                                                    IconButton(
+                                                        onClick = {
+                                                            coroutineScope.launch {
+                                                                bookRepository?.deleteBookmark(bm.id)
+                                                                refreshBookmarksAndNotes()
+                                                            }
+                                                        },
+                                                        modifier = Modifier.size(24.dp)
+                                                    ) {
+                                                        Text("✕", color = TextMuted, fontSize = 12.sp)
+                                                    }
+                                                }
+
+                                                if (!bm.snippet.isNullOrBlank()) {
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Text(
+                                                        text = "\"${bm.snippet}\"",
+                                                        color = TextLinen,
+                                                        fontSize = 12.sp,
+                                                        fontStyle = FontStyle.Italic
+                                                    )
+                                                }
+
+                                                Spacer(modifier = Modifier.height(10.dp))
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.End
+                                                ) {
+                                                    Button(
+                                                        onClick = { onBookClick(bm.bookId, bm.pageNumber) },
+                                                        colors = ButtonDefaults.buttonColors(containerColor = PrimarySubtle),
+                                                        shape = RoundedCornerShape(8.dp),
+                                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                                    ) {
+                                                        Text("Đọc tiếp trang ${bm.pageNumber} ▶", color = PrimaryHover, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (showAnnotations) {
+                                    items(allAnnotations) { an ->
+                                        val swatchColor = getHighlightColor(an.colorId)
+                                        Card(
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = CardDefaults.cardColors(containerColor = CardSurface),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Column(modifier = Modifier.padding(14.dp)) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.weight(1f)
+                                                    ) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(12.dp)
+                                                                .clip(CircleShape)
+                                                                .background(swatchColor)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(10.dp))
+                                                        Column {
+                                                            Text(
+                                                                text = an.bookTitle,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = TextParchment,
+                                                                fontSize = 13.5.sp,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                            Text(
+                                                                text = "Ghi chú tại Trang ${an.pageNumber}",
+                                                                color = swatchColor,
+                                                                fontSize = 11.5.sp,
+                                                                fontWeight = FontWeight.SemiBold
+                                                            )
+                                                        }
+                                                    }
+                                                    IconButton(
+                                                        onClick = {
+                                                            coroutineScope.launch {
+                                                                bookRepository?.deleteAnnotation(an.id)
+                                                                refreshBookmarksAndNotes()
+                                                            }
+                                                        },
+                                                        modifier = Modifier.size(24.dp)
+                                                    ) {
+                                                        Text("✕", color = TextMuted, fontSize = 12.sp)
+                                                    }
+                                                }
+
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Text(
+                                                    text = "\"${an.selectedText}\"",
+                                                    color = TextParchment,
+                                                    fontSize = 12.sp,
+                                                    fontStyle = FontStyle.Italic
+                                                )
+
+                                                if (!an.noteText.isNullOrBlank()) {
+                                                    Spacer(modifier = Modifier.height(6.dp))
+                                                    Text(
+                                                        text = "✍️ ${an.noteText}",
+                                                        color = PrimaryHover,
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Medium
+                                                    )
+                                                }
+
+                                                Spacer(modifier = Modifier.height(10.dp))
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.End
+                                                ) {
+                                                    Button(
+                                                        onClick = { onBookClick(an.bookId, an.pageNumber) },
+                                                        colors = ButtonDefaults.buttonColors(containerColor = PrimarySubtle),
+                                                        shape = RoundedCornerShape(8.dp),
+                                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                                    ) {
+                                                        Text("Đọc tiếp trang ${an.pageNumber} ▶", color = PrimaryHover, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                3 -> {
+                    // TAB 3: SETTINGS & ECOSYSTEM
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(20.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            text = "Cài đặt & Hệ sinh thái",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = TextParchment,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Offline Security Card
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = CardSurface),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryPressed),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "🔒 100% Offline & Riêng tư",
+                                    fontWeight = FontWeight.Bold,
+                                    color = PrimaryHover,
+                                    fontSize = 15.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "FolioHaven không thu thập dữ liệu cá nhân, không chứa quảng cáo và không yêu cầu đăng nhập tài khoản đám mây.",
+                                    color = TextLinen,
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Backup & Restore Card (JSON Interop)
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = CardSurface),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "💾 Sao lưu & Trao đổi dữ liệu (.json)",
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextParchment,
+                                    fontSize = 15.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Xuất hoặc nhập toàn bộ tiến trình đọc sách, danh sách dấu trang và ghi chú dạng tệp JSON tiêu chuẩn tương thích với FolioHaven PC và Web.",
+                                    color = TextLinen,
+                                    fontSize = 12.5.sp,
+                                    lineHeight = 17.sp
+                                )
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Button(
+                                        onClick = { exportJsonLauncher.launch("foliohaven_backup.json") },
+                                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryTerracotta),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("Xuất JSON", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                    Button(
+                                        onClick = { importJsonLauncher.launch(arrayOf("application/json", "text/*", "*/*")) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = CardSurfaceHover),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("Nhập JSON", color = TextParchment, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Seed Sample Books Card (Optional on-demand)
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = CardSurface),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "📖 Thư viện tác phẩm mẫu",
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextParchment,
+                                    fontSize = 15.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Nạp 4 tác phẩm văn học kinh điển (Sherlock Holmes, Chiến Tranh & Hòa Bình, Đắc Nhân Tâm, Nhà Giả Kim) để trải nghiệm đọc ngay.",
+                                    color = TextLinen,
+                                    fontSize = 12.5.sp,
+                                    lineHeight = 17.sp
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Button(
+                                    onClick = {
+                                        coroutineScope.launch {
+                                            bookRepository?.seedDefaultBooksIfEmpty()
+                                            val latestStats = bookRepository?.getReadingStats()
+                                            if (latestStats != null) stats = latestStats
+                                            snackbarHostState.showSnackbar("Đã nạp 4 tác phẩm kinh điển mẫu thành công!")
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = CardSurfaceHover),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Nạp 4 sách kinh điển mẫu", color = PrimaryHover, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Welcome Screen Revisit Card
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = CardSurface),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "✨ Giới thiệu FolioHaven",
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextParchment,
+                                    fontSize = 15.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Xem lại màn hình chào mừng, triết lý đọc sách tĩnh tâm và các tính năng cốt lõi của ứng dụng.",
+                                    color = TextLinen,
+                                    fontSize = 12.5.sp,
+                                    lineHeight = 17.sp
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Button(
+                                    onClick = onShowGreeting,
+                                    colors = ButtonDefaults.buttonColors(containerColor = CardSurfaceHover),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Xem lại màn hình chào", color = PrimaryHover, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        Text(
+                            text = "Hệ sinh thái FolioHaven",
+                            fontWeight = FontWeight.Bold,
+                            color = TextParchment,
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        EcosystemLinkItem("Web Portal", "https://github.com/FeurisPT2/foliohaven", "Vercel / HTML5")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        EcosystemLinkItem("PC Desktop Client", "https://github.com/FeurisPT2/Foliohaven-pc", "Flutter / Dart")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        EcosystemLinkItem("Mobile Android Client", "https://github.com/FeurisPT2/foliohaven-mobile", "Jetpack Compose / Kotlin")
+
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "Phiên bản: 1.0.0 (Native Android Compose)",
+                            color = TextMuted,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 6. Horizontal Books Carousel with 3D Archival Covers
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(sampleBooks) { book ->
-                    BookCardItem(book = book, onClick = { onBookClick(book) })
-                }
+@Composable
+fun EcosystemLinkItem(title: String, url: String, tech: String) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = CardSurface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(text = title, fontWeight = FontWeight.SemiBold, color = TextParchment, fontSize = 13.sp)
+                Text(text = tech, color = TextMuted, fontSize = 11.sp)
             }
-
-            Spacer(modifier = Modifier.height(26.dp))
-
-            // 7. Reading Insights & Stats
-            ReadingStatsSection()
-
-            // Bottom spacing for FAB
-            Spacer(modifier = Modifier.height(84.dp))
+            Text(text = "↗", color = PrimaryHover, fontSize = 16.sp)
         }
     }
 }
 
 // ============================================================================
-// Top Header Bar (Monogram 'F' logo, App Name & Offline Security Badge)
+// Top Header Bar
 // ============================================================================
 
 @Composable
@@ -600,7 +1270,10 @@ fun FolioHavenTopBar() {
 }
 
 @Composable
-fun SearchBarMock() {
+fun SearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit
+) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -616,14 +1289,40 @@ fun SearchBarMock() {
                 .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            SearchIcon(color = TextMuted)
+            SearchIcon(color = if (query.isNotEmpty()) PrimaryHover else TextMuted)
             Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = "Tìm kiếm sách, tác giả, ghi chú...",
-                color = TextMuted,
-                fontFamily = FontFamily.SansSerif,
-                fontSize = 13.sp
-            )
+            Box(modifier = Modifier.weight(1f)) {
+                if (query.isEmpty()) {
+                    Text(
+                        text = "Tìm kiếm sách, tác giả, ghi chú...",
+                        color = TextMuted,
+                        fontFamily = FontFamily.SansSerif,
+                        fontSize = 13.sp
+                    )
+                }
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        color = TextParchment,
+                        fontSize = 13.sp,
+                        fontFamily = FontFamily.SansSerif
+                    ),
+                    cursorBrush = SolidColor(PrimaryHover),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            if (query.isNotEmpty()) {
+                Text(
+                    text = "✕",
+                    color = TextMuted,
+                    fontSize = 14.sp,
+                    modifier = Modifier
+                        .clickable { onQueryChange("") }
+                        .padding(4.dp)
+                )
+            }
         }
     }
 }
@@ -723,7 +1422,6 @@ fun ContinueReadingHeroCard(
             Spacer(modifier = Modifier.height(14.dp))
 
             Row(modifier = Modifier.fillMaxWidth()) {
-                // 3D Archival Cover Mini
                 ArchivalBookCover(
                     book = book,
                     modifier = Modifier.size(width = 72.dp, height = 104.dp),
@@ -812,19 +1510,17 @@ fun ContinueReadingHeroCard(
 @Composable
 fun BookCardItem(
     book: BookItem,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier.width(148.dp)
 ) {
     Card(
-        modifier = Modifier
-            .width(148.dp)
-            .clickable { onClick() },
+        modifier = modifier.clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = CardSurface),
         border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
-            // 3D Archival Book Cover
             ArchivalBookCover(
                 book = book,
                 modifier = Modifier
@@ -867,7 +1563,13 @@ fun BookCardItem(
 }
 
 @Composable
-fun ReadingStatsSection() {
+fun ReadingStatsSection(stats: FolioHavenDbHelper.ReadingStats = FolioHavenDbHelper.ReadingStats(0, 0, 0, 0)) {
+    val readingTimeText = if (stats.totalReadingMinutes < 60) {
+        "${stats.totalReadingMinutes} phút"
+    } else {
+        "${stats.totalReadingMinutes / 60} giờ"
+    }
+
     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
         Text(
             text = "Thống kê & Thói quen đọc",
@@ -883,19 +1585,19 @@ fun ReadingStatsSection() {
         ) {
             StatCard(
                 title = "Thời gian đọc",
-                value = "38 giờ",
+                value = readingTimeText,
                 icon = "⏱️",
                 modifier = Modifier.weight(1f)
             )
             StatCard(
                 title = "Đã hoàn thành",
-                value = "12 cuốn",
+                value = "${stats.finishedBooks} cuốn",
                 icon = "📚",
                 modifier = Modifier.weight(1f)
             )
             StatCard(
                 title = "Chuỗi đọc",
-                value = "7 ngày",
+                value = "${stats.readingStreakDays} ngày",
                 icon = "🔥",
                 modifier = Modifier.weight(1f)
             )
@@ -990,7 +1692,7 @@ fun FolioHavenBottomBar(
             selected = selectedTab == 3,
             onClick = { onTabSelected(3) },
             icon = { MoreVertIcon(color = if (selectedTab == 3) PrimaryHover else TextMuted) },
-            label = { Text("Khác", fontSize = 11.sp) },
+            label = { Text("Cài đặt", fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = PrimaryHover,
                 selectedTextColor = PrimaryHover,

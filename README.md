@@ -40,6 +40,17 @@
 
 ---
 
+## 📚 Documentation
+
+Detailed technical and architectural documentation is available in the [`docs/`](docs/) directory:
+- [**Architecture Guide**](docs/ARCHITECTURE.md): Jetpack Compose UDF architecture, offline data layer, and system design.
+- [**Ecosystem & Feature Parity**](docs/ECOSYSTEM_PARITY.md): Feature matrix comparing Web, Desktop, and Mobile clients.
+- [**Design Tokens & Identity**](docs/DESIGN_TOKENS.md): Color tokens, typography scale, and 3D archival book covers.
+- [**Implementation Roadmap**](docs/ROADMAP.md): Phased plan from UI prototype to full offline reader.
+- [**Development Guide**](docs/DEVELOPMENT.md): Local prerequisites, SDK configuration, and build commands.
+
+---
+
 ## 🛠️ Building & Running Locally
 
 ### Prerequisites
