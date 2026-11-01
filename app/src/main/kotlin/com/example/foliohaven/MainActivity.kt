@@ -44,8 +44,15 @@ class MainActivity : ComponentActivity() {
 
           if (isGreetingActive) {
             GreetingScreen(
-              onGetStarted = { theme, seedSampleBooks ->
+              initialLanguage = preferences.getAppLanguage(),
+              onGetStarted = { theme, seedSampleBooks, language ->
+                preferences.setAppLanguage(language)
                 preferences.setDefaultReadingTheme(theme)
+                if (language == "en") {
+                  preferences.setTtsLanguage("en-US")
+                } else {
+                  preferences.setTtsLanguage("vi-VN")
+                }
                 preferences.setGreetingCompleted(true)
                 if (seedSampleBooks) {
                   coroutineScope.launch {

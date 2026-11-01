@@ -31,6 +31,33 @@ class UserPreferencesRepositoryTest {
         assertFalse(repo.isGreetingCompleted())
     }
 
+    @Test
+    fun initialAppLanguage_defaultsToVietnamese() {
+        val fakePrefs = FakeSharedPreferences()
+        val repo = UserPreferencesRepository(injectedPrefs = fakePrefs)
+
+        assertEquals("vi", repo.appLanguage.value)
+        assertEquals("vi", repo.getAppLanguage())
+    }
+
+    @Test
+    fun setAppLanguage_updatesStateFlowAndPersists() {
+        val fakePrefs = FakeSharedPreferences()
+        val repo = UserPreferencesRepository(injectedPrefs = fakePrefs)
+
+        repo.setAppLanguage("en")
+        assertEquals("en", repo.appLanguage.value)
+        assertEquals("en", repo.getAppLanguage())
+
+        repo.setAppLanguage("vi")
+        assertEquals("vi", repo.appLanguage.value)
+        assertEquals("vi", repo.getAppLanguage())
+
+        // Fallback check on unexpected string
+        repo.setAppLanguage("other")
+        assertEquals("vi", repo.appLanguage.value)
+    }
+
     // --- Reading Preferences Tests ---
 
     @Test

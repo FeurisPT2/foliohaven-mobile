@@ -54,9 +54,15 @@ class UserPreferencesRepository(
 
         const val KEY_DEFAULT_TTS_LANGUAGE = "pref_default_tts_language"
         const val DEFAULT_TTS_LANGUAGE = "vi-VN"
+
+        const val KEY_APP_LANGUAGE = "pref_app_language"
+        const val DEFAULT_APP_LANGUAGE = "vi"
     }
 
     // Reactive StateFlow properties backed by MutableStateFlow
+    private val _appLanguage = MutableStateFlow(readStoredAppLanguage())
+    val appLanguage: StateFlow<String> = _appLanguage.asStateFlow()
+
     private val _defaultFontSize = MutableStateFlow(readStoredFontSize())
     val defaultFontSize: StateFlow<Float> = _defaultFontSize.asStateFlow()
 
@@ -152,7 +158,15 @@ class UserPreferencesRepository(
         _ttsLanguage.value = sanitized
     }
 
+    @Synchronized
+    fun setAppLanguage(language: String) {
+        val sanitized = if (language.equals("en", ignoreCase = true)) "en" else "vi"
+        prefs.edit().putString(KEY_APP_LANGUAGE, sanitized).apply()
+        _appLanguage.value = sanitized
+    }
+
     // Synchronous getters
+    fun getAppLanguage(): String = appLanguage.value
     fun getDefaultFontSize(): Float = defaultFontSize.value
     fun getDefaultLineSpacing(): Float = defaultLineSpacing.value
     fun getDefaultReaderTheme(): ReaderTheme = defaultReaderTheme.value
@@ -197,5 +211,10 @@ class UserPreferencesRepository(
     private fun readStoredTtsLanguage(): String {
         val raw = prefs.getString(KEY_DEFAULT_TTS_LANGUAGE, DEFAULT_TTS_LANGUAGE)
         return raw?.trim()?.ifBlank { DEFAULT_TTS_LANGUAGE } ?: DEFAULT_TTS_LANGUAGE
+    }
+
+    private fun readStoredAppLanguage(): String {
+        val raw = prefs.getString(KEY_APP_LANGUAGE, DEFAULT_APP_LANGUAGE)
+        return if (raw?.equals("en", ignoreCase = true) == true) "en" else "vi"
     }
 }
