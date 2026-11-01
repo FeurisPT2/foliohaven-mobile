@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.foliohaven.data.repository.BookRepository
 import com.example.foliohaven.data.repository.UserPreferencesRepository
 import com.example.foliohaven.ui.greeting.GreetingScreen
@@ -31,7 +32,8 @@ class MainActivity : ComponentActivity() {
     val preferences = UserPreferencesRepository(applicationContext)
 
     setContent {
-      FolioHavenComposeTheme {
+      val useDynamicColor by preferences.useDynamicColor.collectAsStateWithLifecycle()
+      FolioHavenComposeTheme(dynamicColor = useDynamicColor) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
           val coroutineScope = rememberCoroutineScope()
           var isGreetingActive by remember { mutableStateOf(!preferences.isGreetingCompleted()) }

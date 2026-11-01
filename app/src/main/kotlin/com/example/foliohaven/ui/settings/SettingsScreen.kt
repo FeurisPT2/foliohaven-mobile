@@ -3,6 +3,7 @@ package com.example.foliohaven.ui.settings
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.speech.tts.TextToSpeech
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -38,6 +39,8 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -117,6 +120,7 @@ fun SettingsScreen(
     val ttsSpeechRate by preferencesRepository.ttsSpeechRate.collectAsStateWithLifecycle()
     val ttsPitch by preferencesRepository.ttsPitch.collectAsStateWithLifecycle()
     val ttsLanguage by preferencesRepository.ttsLanguage.collectAsStateWithLifecycle()
+    val useDynamicColor by preferencesRepository.useDynamicColor.collectAsStateWithLifecycle()
 
     // ------------------------------------------------------------------------
     // Storage & Library Statistics State
@@ -351,7 +355,17 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(18.dp))
 
         // ====================================================================
-        // CARD 2: Text-to-Speech (TTS) Defaults
+        // CARD 2: Material Design 3 & Dynamic Color
+        // ====================================================================
+        MaterialTheme3Card(
+            useDynamicColor = useDynamicColor,
+            onDynamicColorChange = { preferencesRepository.setUseDynamicColor(it) }
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // ====================================================================
+        // CARD 3: Text-to-Speech (TTS) Defaults
         // ====================================================================
         TtsPreferencesCard(
             speechRate = ttsSpeechRate,
@@ -742,7 +756,108 @@ private fun ReadingPreferencesCard(
 }
 
 // ============================================================================
-// Sub-Composable: Card 2 - Text-to-Speech (TTS) Defaults
+// Sub-Composable: Card 2 - Material Design 3 & Dynamic Color
+// ============================================================================
+@Composable
+private fun MaterialTheme3Card(
+    useDynamicColor: Boolean,
+    onDynamicColorChange: (Boolean) -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = CardSurface),
+        border = BorderStroke(1.dp, BorderCharcoal),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(PrimarySubtle),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("🎨", fontSize = 18.sp)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Material Design 3 & Màu động",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextParchment,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Chuẩn thiết kế Material 3 của Google",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PrimaryHover,
+                        fontSize = 11.5.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = SurfaceEspresso,
+                border = BorderStroke(1.dp, BorderCharcoal),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Màu động Material You (Dynamic Color)",
+                            color = TextParchment,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                if (useDynamicColor)
+                                    "Đang bật: Ứng dụng tự hòa sắc theo hình nền máy (Monet palette)"
+                                else
+                                    "Đang tắt: Giữ tông màu đất nung Terracotta & Espresso cổ điển"
+                            } else {
+                                "Yêu cầu Android 12 trở lên để trích xuất màu tự động từ hình nền"
+                            },
+                            color = TextLinen,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Switch(
+                        checked = useDynamicColor,
+                        onCheckedChange = onDynamicColorChange,
+                        enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = PrimaryTerracotta,
+                            uncheckedThumbColor = TextMuted,
+                            uncheckedTrackColor = CardSurface
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Sub-Composable: Card 3 - Text-to-Speech (TTS) Defaults
 // ============================================================================
 @Composable
 private fun TtsPreferencesCard(

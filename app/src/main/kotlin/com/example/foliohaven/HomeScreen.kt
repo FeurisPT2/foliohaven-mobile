@@ -39,7 +39,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -563,38 +568,32 @@ fun HomeScreen(
                 }
             },
             floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    filePickerLauncher.launch(
-                        arrayOf(
-                            "application/epub+zip",
-                            "application/pdf",
-                            "text/plain",
-                            "application/octet-stream",
-                            "*/*"
+                ExtendedFloatingActionButton(
+                    onClick = {
+                        filePickerLauncher.launch(
+                            arrayOf(
+                                "application/epub+zip",
+                                "application/pdf",
+                                "text/plain",
+                                "application/octet-stream",
+                                "*/*"
+                            )
                         )
-                    )
-                },
-                containerColor = PrimaryTerracotta,
-                contentColor = Color.White,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.shadow(8.dp, RoundedCornerShape(16.dp))
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    PlusIcon(color = Color.White)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Thêm sách",
-                        fontFamily = FontFamily.SansSerif,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
-                }
+                    },
+                    icon = { PlusIcon(color = Color.White) },
+                    text = {
+                        Text(
+                            text = "Thêm sách",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    containerColor = PrimaryTerracotta,
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp)
+                )
             }
-        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -1494,26 +1493,27 @@ fun SearchBar(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .height(48.dp),
-        shape = RoundedCornerShape(12.dp),
+            .height(50.dp),
+        shape = RoundedCornerShape(25.dp),
         color = InputSurface,
-        border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal)
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+        shadowElevation = 2.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 14.dp),
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             SearchIcon(color = if (query.isNotEmpty()) PrimaryHover else TextMuted)
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Box(modifier = Modifier.weight(1f)) {
                 if (query.isEmpty()) {
                     Text(
                         text = "Tìm kiếm sách, tác giả, ghi chú...",
                         color = TextMuted,
                         fontFamily = FontFamily.SansSerif,
-                        fontSize = 13.sp
+                        fontSize = 13.5.sp
                     )
                 }
                 BasicTextField(
@@ -1522,7 +1522,7 @@ fun SearchBar(
                     singleLine = true,
                     textStyle = TextStyle(
                         color = TextParchment,
-                        fontSize = 13.sp,
+                        fontSize = 13.5.sp,
                         fontFamily = FontFamily.SansSerif
                     ),
                     cursorBrush = SolidColor(PrimaryHover),
@@ -1530,14 +1530,17 @@ fun SearchBar(
                 )
             }
             if (query.isNotEmpty()) {
-                Text(
-                    text = "✕",
-                    color = TextMuted,
-                    fontSize = 14.sp,
-                    modifier = Modifier
-                        .clickable { onQueryChange("") }
-                        .padding(4.dp)
-                )
+                IconButton(
+                    onClick = { onQueryChange("") },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Text(
+                        text = "✕",
+                        color = TextMuted,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
@@ -1558,26 +1561,35 @@ fun CategoryFilterRow(
     ) {
         categories.forEach { cat ->
             val isSelected = cat == selectedCategory
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (isSelected) PrimaryTerracotta else CardSurface)
-                    .border(
-                        1.dp,
-                        if (isSelected) PrimaryHover else BorderCharcoal,
-                        RoundedCornerShape(8.dp)
+            FilterChip(
+                selected = isSelected,
+                onClick = { onCategorySelected(cat) },
+                label = {
+                    Text(
+                        text = cat,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                     )
-                    .clickable { onCategorySelected(cat) }
-                    .padding(horizontal = 14.dp, vertical = 7.dp)
-            ) {
-                Text(
-                    text = cat,
-                    color = if (isSelected) Color.White else TextLinen,
-                    fontFamily = FontFamily.SansSerif,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                },
+                leadingIcon = if (isSelected) {
+                    {
+                        Text("✓", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                } else null,
+                shape = RoundedCornerShape(10.dp),
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = CardSurface,
+                    labelColor = TextLinen,
+                    selectedContainerColor = PrimaryTerracotta,
+                    selectedLabelColor = Color.White
+                ),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = isSelected,
+                    borderColor = BorderCharcoal,
+                    selectedBorderColor = PrimaryHover
                 )
-            }
+            )
         }
     }
 }

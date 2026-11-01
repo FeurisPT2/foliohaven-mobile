@@ -57,9 +57,15 @@ class UserPreferencesRepository(
 
         const val KEY_APP_LANGUAGE = "pref_app_language"
         const val DEFAULT_APP_LANGUAGE = "vi"
+
+        const val KEY_USE_DYNAMIC_COLOR = "pref_use_dynamic_color"
+        const val DEFAULT_USE_DYNAMIC_COLOR = false
     }
 
     // Reactive StateFlow properties backed by MutableStateFlow
+    private val _useDynamicColor = MutableStateFlow(readStoredUseDynamicColor())
+    val useDynamicColor: StateFlow<Boolean> = _useDynamicColor.asStateFlow()
+
     private val _appLanguage = MutableStateFlow(readStoredAppLanguage())
     val appLanguage: StateFlow<String> = _appLanguage.asStateFlow()
 
@@ -165,7 +171,14 @@ class UserPreferencesRepository(
         _appLanguage.value = sanitized
     }
 
+    @Synchronized
+    fun setUseDynamicColor(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_USE_DYNAMIC_COLOR, enabled).apply()
+        _useDynamicColor.value = enabled
+    }
+
     // Synchronous getters
+    fun isDynamicColorEnabled(): Boolean = useDynamicColor.value
     fun getAppLanguage(): String = appLanguage.value
     fun getDefaultFontSize(): Float = defaultFontSize.value
     fun getDefaultLineSpacing(): Float = defaultLineSpacing.value
@@ -217,4 +230,7 @@ class UserPreferencesRepository(
         val raw = prefs.getString(KEY_APP_LANGUAGE, DEFAULT_APP_LANGUAGE)
         return if (raw?.equals("en", ignoreCase = true) == true) "en" else "vi"
     }
+
+    private fun readStoredUseDynamicColor(): Boolean =
+        prefs.getBoolean(KEY_USE_DYNAMIC_COLOR, DEFAULT_USE_DYNAMIC_COLOR)
 }

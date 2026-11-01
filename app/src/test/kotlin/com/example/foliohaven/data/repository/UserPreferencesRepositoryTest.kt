@@ -58,6 +58,29 @@ class UserPreferencesRepositoryTest {
         assertEquals("vi", repo.appLanguage.value)
     }
 
+    @Test
+    fun initialDynamicColor_defaultsToFalse() {
+        val fakePrefs = FakeSharedPreferences()
+        val repo = UserPreferencesRepository(injectedPrefs = fakePrefs)
+
+        assertFalse(repo.useDynamicColor.value)
+        assertFalse(repo.isDynamicColorEnabled())
+    }
+
+    @Test
+    fun setUseDynamicColor_updatesStateFlowAndPersists() {
+        val fakePrefs = FakeSharedPreferences()
+        val repo = UserPreferencesRepository(injectedPrefs = fakePrefs)
+
+        repo.setUseDynamicColor(true)
+        assertTrue(repo.useDynamicColor.value)
+        assertTrue(repo.isDynamicColorEnabled())
+
+        repo.setUseDynamicColor(false)
+        assertFalse(repo.useDynamicColor.value)
+        assertFalse(repo.isDynamicColorEnabled())
+    }
+
     // --- Reading Preferences Tests ---
 
     @Test
