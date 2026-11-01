@@ -49,6 +49,34 @@ class BookRepository(private val context: Context) {
         dbHelper.getBookById(id)
     }
 
+    suspend fun updateBookMetadata(bookId: Long, title: String, author: String, category: String) =
+        withContext(Dispatchers.IO) {
+            val success = dbHelper.updateBookMetadata(bookId, title, author, category)
+            refreshBooks()
+            success
+        }
+
+    suspend fun deleteBook(bookId: Long) = withContext(Dispatchers.IO) {
+        val book = dbHelper.getBookById(bookId)
+        val success = dbHelper.deleteBook(bookId)
+        if (success && book != null) {
+            try {
+                val file = File(book.filePath)
+                if (file.exists() && file.parentFile?.absolutePath?.startsWith(context.filesDir.absolutePath) == true) {
+                    file.delete()
+                }
+            } catch (_: Exception) {}
+        }
+        refreshBooks()
+        success
+    }
+
+    suspend fun toggleBookFinished(bookId: Long, isFinished: Boolean) = withContext(Dispatchers.IO) {
+        val success = dbHelper.toggleBookFinished(bookId, isFinished)
+        refreshBooks()
+        success
+    }
+
     suspend fun updateReadingProgress(
         bookId: Long,
         currentPage: Int,

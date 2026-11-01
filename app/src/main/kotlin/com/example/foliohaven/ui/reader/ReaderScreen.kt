@@ -29,6 +29,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -72,9 +73,11 @@ import com.example.foliohaven.data.model.AnnotationRecord
 import com.example.foliohaven.data.model.BookRecord
 import com.example.foliohaven.data.model.BookmarkRecord
 import com.example.foliohaven.data.model.ReaderTheme
+import com.example.foliohaven.data.reader.ChapterItem
 import com.example.foliohaven.data.reader.DocumentEngineFactory
 import com.example.foliohaven.data.reader.DocumentReader
 import com.example.foliohaven.data.reader.PageContent
+import com.example.foliohaven.data.reader.SearchResultItem
 import com.example.foliohaven.data.repository.BookRepository
 import com.example.foliohaven.ui.theme.BorderCharcoal
 import com.example.foliohaven.ui.theme.CardSurface
@@ -93,6 +96,7 @@ import com.example.foliohaven.ui.theme.TextLinen
 import com.example.foliohaven.ui.theme.TextMuted
 import com.example.foliohaven.ui.theme.TextParchment
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
@@ -117,9 +121,13 @@ fun getHighlightName(colorId: Int): String {
     }
 }
 
+// ============================================================================
+// Vector Icons
+// ============================================================================
+
 @Composable
 fun SpeakerIcon(isPlaying: Boolean, color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(20.dp)) {
+    Canvas(modifier = modifier.size(19.dp)) {
         val path = Path().apply {
             moveTo(size.width * 0.15f, size.height * 0.35f)
             lineTo(size.width * 0.38f, size.height * 0.35f)
@@ -147,8 +155,8 @@ fun SpeakerIcon(isPlaying: Boolean, color: Color, modifier: Modifier = Modifier)
 
 @Composable
 fun HighlightPenIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(20.dp)) {
-        val stroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+    Canvas(modifier = modifier.size(19.dp)) {
+        val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
         val path = Path().apply {
             moveTo(size.width * 0.22f, size.height * 0.78f)
             lineTo(size.width * 0.35f, size.height * 0.85f)
@@ -165,6 +173,41 @@ fun HighlightPenIcon(color: Color, modifier: Modifier = Modifier) {
             strokeWidth = 2.dp.toPx(),
             cap = StrokeCap.Round
         )
+    }
+}
+
+@Composable
+fun SearchIcon(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(19.dp)) {
+        val stroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+        drawCircle(
+            color = color,
+            radius = size.width * 0.28f,
+            center = Offset(size.width * 0.42f, size.height * 0.42f),
+            style = stroke
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.65f, size.height * 0.65f),
+            end = Offset(size.width * 0.88f, size.height * 0.88f),
+            strokeWidth = 2.2.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+@Composable
+fun TocIcon(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(19.dp)) {
+        val y1 = size.height * 0.25f
+        val y2 = size.height * 0.50f
+        val y3 = size.height * 0.75f
+        drawCircle(color, radius = 2.dp.toPx(), center = Offset(size.width * 0.15f, y1))
+        drawLine(color, start = Offset(size.width * 0.32f, y1), end = Offset(size.width * 0.88f, y1), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
+        drawCircle(color, radius = 2.dp.toPx(), center = Offset(size.width * 0.15f, y2))
+        drawLine(color, start = Offset(size.width * 0.32f, y2), end = Offset(size.width * 0.88f, y2), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
+        drawCircle(color, radius = 2.dp.toPx(), center = Offset(size.width * 0.15f, y3))
+        drawLine(color, start = Offset(size.width * 0.32f, y3), end = Offset(size.width * 0.88f, y3), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
     }
 }
 
@@ -191,8 +234,21 @@ fun ReaderScreen(
     // Reading preferences
     var currentTheme by remember { mutableStateOf(initialTheme) }
     var fontSizeSp by remember { mutableFloatStateOf(16f) }
-    var showThemeMenu by remember { mutableStateOf(false) }
+    var lineHeightMultiplier by remember { mutableFloatStateOf(1.6f) }
+    var horizontalMarginDp by remember { mutableIntStateOf(24) }
     var isBookmarked by remember { mutableStateOf(false) }
+
+    // Dialog & Sheet states
+    var showDisplaySettingsSheet by remember { mutableStateOf(false) }
+    var showTocSheet by remember { mutableStateOf(false) }
+    var showSearchSheet by remember { mutableStateOf(false) }
+    var showAddAnnotationDialog by remember { mutableStateOf(false) }
+    var showBookmarksSheet by remember { mutableStateOf(false) }
+
+    // In-Book Search state
+    var searchQueryInput by remember { mutableStateOf("") }
+    var searchResults by remember { mutableStateOf<List<SearchResultItem>>(emptyList()) }
+    var isSearching by remember { mutableStateOf(false) }
 
     // Text-to-Speech (TTS)
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
@@ -203,12 +259,21 @@ fun ReaderScreen(
     var allBookAnnotations by remember { mutableStateOf<List<AnnotationRecord>>(emptyList()) }
     var allBookBookmarks by remember { mutableStateOf<List<BookmarkRecord>>(emptyList()) }
 
-    var showAddAnnotationDialog by remember { mutableStateOf(false) }
-    var showBookmarksSheet by remember { mutableStateOf(false) }
-
     var selectedColorId by remember { mutableIntStateOf(1) } // 1=Amber, 2=Emerald, 3=Azure, 4=Rose
     var noteQuoteInput by remember { mutableStateOf("") }
     var noteTextInput by remember { mutableStateOf("") }
+
+    // Active reading timer tracker
+    var sessionStartTime by remember { mutableStateOf(System.currentTimeMillis()) }
+
+    fun flushReadingTime(targetPage: Int = currentPage) {
+        val now = System.currentTimeMillis()
+        val elapsedSeconds = ((now - sessionStartTime) / 1000).toInt().coerceAtLeast(0)
+        sessionStartTime = now
+        coroutineScope.launch {
+            bookRepository.updateReadingProgress(bookId, targetPage, totalPages, elapsedSeconds)
+        }
+    }
 
     // Initialize TTS
     DisposableEffect(context) {
@@ -249,6 +314,7 @@ fun ReaderScreen(
     // Load page content
     fun loadPage(targetPage: Int) {
         val safePage = targetPage.coerceIn(1, totalPages)
+        flushReadingTime(safePage)
         currentPage = safePage
 
         // Stop TTS when navigating pages
@@ -295,9 +361,15 @@ fun ReaderScreen(
         }
     }
 
-    // 2. Clean up reader on exit
+    // 2. Clean up reader on exit and record reading time
     DisposableEffect(bookId) {
         onDispose {
+            val elapsed = ((System.currentTimeMillis() - sessionStartTime) / 1000).toInt().coerceAtLeast(0)
+            if (elapsed > 1) {
+                coroutineScope.launch(NonCancellable + Dispatchers.IO) {
+                    bookRepository.updateReadingProgress(bookId, currentPage, totalPages, elapsed)
+                }
+            }
             documentReader?.close()
         }
     }
@@ -359,7 +431,17 @@ fun ReaderScreen(
                     }
                 },
                 actions = {
-                    // TTS Read Aloud Button
+                    // 1. In-Book Search Button
+                    IconButton(onClick = { showSearchSheet = true }) {
+                        SearchIcon(color = TextParchment)
+                    }
+
+                    // 2. Table of Contents (TOC) Button
+                    IconButton(onClick = { showTocSheet = true }) {
+                        TocIcon(color = TextParchment)
+                    }
+
+                    // 3. TTS Read Aloud Button
                     IconButton(onClick = { toggleTts() }) {
                         SpeakerIcon(
                             isPlaying = isTtsPlaying,
@@ -367,9 +449,8 @@ fun ReaderScreen(
                         )
                     }
 
-                    // Highlight & Note Button
+                    // 4. Highlight & Note Button
                     IconButton(onClick = {
-                        // Prefill quote from current content
                         if (noteQuoteInput.isBlank()) {
                             when (val c = pageContent) {
                                 is PageContent.Text -> {
@@ -385,31 +466,17 @@ fun ReaderScreen(
                         HighlightPenIcon(color = TextParchment)
                     }
 
-                    // Bookmarks & Notes List Sheet Button
+                    // 5. Bookmarks & Notes List Sheet Button
                     IconButton(onClick = { showBookmarksSheet = true }) {
-                        Text("📑", fontSize = 16.sp)
+                        Text("📑", fontSize = 15.sp)
                     }
 
-                    // Font scaling buttons A- and A+
-                    IconButton(onClick = { if (fontSizeSp > 12f) fontSizeSp -= 2f }) {
-                        Text("A-", fontSize = 13.sp, color = TextParchment, fontWeight = FontWeight.Bold)
-                    }
-                    IconButton(onClick = { if (fontSizeSp < 32f) fontSizeSp += 2f }) {
-                        Text("A+", fontSize = 16.sp, color = TextParchment, fontWeight = FontWeight.Bold)
+                    // 6. Display Settings (Aa: Font, Spacing, Themes, Margins)
+                    IconButton(onClick = { showDisplaySettingsSheet = true }) {
+                        Text("Aa", fontSize = 15.sp, color = PrimaryHover, fontWeight = FontWeight.Bold)
                     }
 
-                    // Theme Palette Toggle
-                    IconButton(onClick = { showThemeMenu = !showThemeMenu }) {
-                        Box(
-                            modifier = Modifier
-                                .size(22.dp)
-                                .clip(CircleShape)
-                                .background(currentTheme.backgroundColor)
-                                .border(1.5.dp, PrimaryHover, CircleShape)
-                        )
-                    }
-
-                    // Bookmark Ribbon Button
+                    // 7. Bookmark Ribbon Toggle
                     IconButton(onClick = {
                         coroutineScope.launch {
                             if (isBookmarked) {
@@ -503,61 +570,11 @@ fun ReaderScreen(
                 .padding(innerPadding)
                 .background(currentTheme.backgroundColor)
         ) {
-            // Theme selection dropdown overlay
-            if (showThemeMenu) {
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 8.dp, end = 16.dp)
-                        .border(1.dp, BorderCharcoal, RoundedCornerShape(12.dp)),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceEspresso),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = "Bảng màu đọc sách",
-                            color = TextParchment,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        ReaderTheme.entries.forEach { theme ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .clickable {
-                                        currentTheme = theme
-                                        showThemeMenu = false
-                                    }
-                                    .padding(vertical = 6.dp, horizontal = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(18.dp)
-                                        .clip(CircleShape)
-                                        .background(theme.backgroundColor)
-                                        .border(1.dp, BorderCharcoal, CircleShape)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(
-                                    text = theme.title,
-                                    color = if (theme == currentTheme) PrimaryHover else TextLinen,
-                                    fontWeight = if (theme == currentTheme) FontWeight.Bold else FontWeight.Normal,
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
             // Main Reading Canvas
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .padding(horizontal = horizontalMarginDp.dp, vertical = 16.dp)
                     .verticalScroll(scrollState)
             ) {
                 when (val content = pageContent) {
@@ -597,7 +614,7 @@ fun ReaderScreen(
                             text = content.content,
                             fontFamily = FontFamily.Serif,
                             fontSize = fontSizeSp.sp,
-                            lineHeight = (fontSizeSp * 1.6f).sp,
+                            lineHeight = (fontSizeSp * lineHeightMultiplier).sp,
                             color = currentTheme.textColor,
                             textAlign = TextAlign.Justify
                         )
@@ -685,7 +702,384 @@ fun ReaderScreen(
         }
     }
 
-    // Modal Dialog: Add Highlight & Note
+    // ========================================================================
+    // 1. Table of Contents (TOC) Modal Dialog
+    // ========================================================================
+    if (showTocSheet) {
+        val tocItems = documentReader?.tableOfContents ?: emptyList()
+        AlertDialog(
+            onDismissRequest = { showTocSheet = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TocIcon(color = PrimaryHover)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Mục lục (${tocItems.size} phần)",
+                        color = TextParchment,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(340.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    if (tocItems.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Chưa có danh sách mục lục.", color = TextMuted, fontSize = 13.sp)
+                        }
+                    } else {
+                        tocItems.forEach { item ->
+                            val isCurrent = currentPage == item.pageIndex
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isCurrent) PrimarySubtle else CardSurface,
+                                border = androidx.compose.foundation.BorderStroke(
+                                    width = if (isCurrent) 1.5.dp else 1.dp,
+                                    color = if (isCurrent) PrimaryTerracotta else BorderCharcoal
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 3.dp)
+                                    .clickable {
+                                        loadPage(item.pageIndex)
+                                        showTocSheet = false
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = item.title,
+                                        color = if (isCurrent) PrimaryHover else TextParchment,
+                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                        fontSize = 13.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Trang ${item.pageIndex}",
+                                        color = if (isCurrent) PrimaryHover else TextMuted,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showTocSheet = false }) {
+                    Text("Đóng", color = PrimaryHover, fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = SurfaceEspresso
+        )
+    }
+
+    // ========================================================================
+    // 2. In-Book Live Search Dialog
+    // ========================================================================
+    if (showSearchSheet) {
+        AlertDialog(
+            onDismissRequest = { showSearchSheet = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SearchIcon(color = PrimaryHover)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Tìm kiếm trong sách",
+                        color = TextParchment,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                }
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = searchQueryInput,
+                        onValueChange = {
+                            searchQueryInput = it
+                            if (it.length >= 2) {
+                                coroutineScope.launch {
+                                    isSearching = true
+                                    val res = withContext(Dispatchers.Default) {
+                                        documentReader?.search(it) ?: emptyList()
+                                    }
+                                    searchResults = res
+                                    isSearching = false
+                                }
+                            } else {
+                                searchResults = emptyList()
+                            }
+                        },
+                        placeholder = { Text("Nhập từ khóa tìm kiếm...", color = TextDisabled, fontSize = 13.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = InputSurface,
+                            unfocusedContainerColor = InputSurface,
+                            focusedTextColor = TextParchment,
+                            unfocusedTextColor = TextParchment,
+                            focusedBorderColor = PrimaryTerracotta,
+                            unfocusedBorderColor = BorderCharcoal
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    if (isSearching) {
+                        Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = PrimaryTerracotta, modifier = Modifier.size(28.dp))
+                        }
+                    } else if (searchQueryInput.length >= 2 && searchResults.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                            Text("Không tìm thấy kết quả phù hợp.", color = TextMuted, fontSize = 12.5.sp)
+                        }
+                    } else if (searchResults.isNotEmpty()) {
+                        Text(
+                            text = "Tìm thấy ${searchResults.size} kết quả:",
+                            color = PrimaryHover,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(240.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            searchResults.forEach { result ->
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = CardSurface,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 3.dp)
+                                        .clickable {
+                                            loadPage(result.pageIndex)
+                                            showSearchSheet = false
+                                        }
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = result.chapterTitle,
+                                                color = PrimaryHover,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = "Trang ${result.pageIndex}",
+                                                color = TextMuted,
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = result.snippet,
+                                            color = TextLinen,
+                                            fontSize = 12.sp,
+                                            lineHeight = 16.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSearchSheet = false }) {
+                    Text("Đóng", color = PrimaryHover, fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = SurfaceEspresso
+        )
+    }
+
+    // ========================================================================
+    // 3. Display Settings Modal Sheet (Themes, Typography, Line Spacing, Margins)
+    // ========================================================================
+    if (showDisplaySettingsSheet) {
+        AlertDialog(
+            onDismissRequest = { showDisplaySettingsSheet = false },
+            title = {
+                Text(
+                    text = "Cài đặt giao diện & Đọc",
+                    color = TextParchment,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    // 1. Reading Palette Picker
+                    Text(text = "Bảng màu đọc sách:", color = TextLinen, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ReaderTheme.entries.forEach { theme ->
+                            val isSel = theme == currentTheme
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = theme.backgroundColor,
+                                border = androidx.compose.foundation.BorderStroke(
+                                    width = if (isSel) 2.dp else 1.dp,
+                                    color = if (isSel) PrimaryTerracotta else BorderCharcoal
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .clickable { currentTheme = theme }
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = theme.title.take(6),
+                                        color = theme.textColor,
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // 2. Font Size Scaling
+                    Text(text = "Cỡ chữ: ${fontSizeSp.toInt()} sp", color = TextLinen, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = { if (fontSizeSp > 12f) fontSizeSp -= 2f },
+                            colors = ButtonDefaults.buttonColors(containerColor = CardSurface),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("A-", color = TextParchment, fontWeight = FontWeight.Bold)
+                        }
+                        Text(
+                            text = "Mẫu chữ đọc sách",
+                            fontFamily = FontFamily.Serif,
+                            fontSize = fontSizeSp.sp,
+                            color = currentTheme.textColor,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+                        Button(
+                            onClick = { if (fontSizeSp < 32f) fontSizeSp += 2f },
+                            colors = ButtonDefaults.buttonColors(containerColor = CardSurface),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("A+", color = TextParchment, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // 3. Line Spacing Multiplier
+                    Text(text = "Khoảng cách dòng:", color = TextLinen, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(1.4f to "1.4x", 1.6f to "1.6x", 1.8f to "1.8x", 2.0f to "2.0x").forEach { (spacing, label) ->
+                            val isSel = lineHeightMultiplier == spacing
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSel) PrimarySubtle else CardSurface,
+                                border = androidx.compose.foundation.BorderStroke(
+                                    width = if (isSel) 1.5.dp else 1.dp,
+                                    color = if (isSel) PrimaryTerracotta else BorderCharcoal
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { lineHeightMultiplier = spacing }
+                                    .padding(vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (isSel) PrimaryHover else TextParchment,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // 4. Horizontal Margins
+                    Text(text = "Lề hai bên trang:", color = TextLinen, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(16 to "Gọn (16dp)", 24 to "Vừa (24dp)", 32 to "Rộng (32dp)").forEach { (margin, label) ->
+                            val isSel = horizontalMarginDp == margin
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSel) PrimarySubtle else CardSurface,
+                                border = androidx.compose.foundation.BorderStroke(
+                                    width = if (isSel) 1.5.dp else 1.dp,
+                                    color = if (isSel) PrimaryTerracotta else BorderCharcoal
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { horizontalMarginDp = margin }
+                                    .padding(vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (isSel) PrimaryHover else TextParchment,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDisplaySettingsSheet = false }) {
+                    Text("Áp dụng", color = PrimaryHover, fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = SurfaceEspresso
+        )
+    }
+
+    // ========================================================================
+    // 4. Modal Dialog: Add Highlight & Note
+    // ========================================================================
     if (showAddAnnotationDialog) {
         AlertDialog(
             onDismissRequest = { showAddAnnotationDialog = false },
@@ -813,7 +1207,9 @@ fun ReaderScreen(
         )
     }
 
-    // Modal Dialog / Sheet: Bookmarks & Notes List for this book
+    // ========================================================================
+    // 5. Modal Dialog: Bookmarks & Notes List for this book
+    // ========================================================================
     if (showBookmarksSheet) {
         AlertDialog(
             onDismissRequest = { showBookmarksSheet = false },

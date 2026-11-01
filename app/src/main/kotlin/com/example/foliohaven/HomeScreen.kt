@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -44,6 +45,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -111,10 +114,12 @@ data class BookItem(
     val title: String,
     val author: String,
     val format: String,
+    val category: String = "Tất cả sách",
     val progress: Float,
     val coverGradient: List<Color>,
     val totalPages: Int,
-    val currentPage: Int
+    val currentPage: Int,
+    val isFinished: Boolean = false
 )
 
 fun BookRecord.toBookItem(): BookItem = BookItem(
@@ -122,10 +127,12 @@ fun BookRecord.toBookItem(): BookItem = BookItem(
     title = title,
     author = author,
     format = format,
+    category = category,
     progress = progressPercent,
     coverGradient = listOf(Color(coverGradientStart), Color(coverGradientEnd)),
     totalPages = totalPages,
-    currentPage = currentPage
+    currentPage = currentPage,
+    isFinished = isFinished
 )
 
 val categoryList = listOf("Tất cả sách", "EPUB", "PDF", "Tiểu thuyết", "Kỹ năng sống", "Kinh điển")
@@ -421,6 +428,15 @@ fun HomeScreen(
     var allAnnotations by remember { mutableStateOf<List<FolioHavenDbHelper.AnnotationWithBook>>(emptyList()) }
     var bookmarksTabFilter by remember { mutableStateOf("Tất cả") } // "Tất cả", "Dấu trang", "Ghi chú"
 
+    // Book Management state
+    var selectedBookForAction by remember { mutableStateOf<BookItem?>(null) }
+    var showBookActionMenu by remember { mutableStateOf(false) }
+    var showEditBookDialog by remember { mutableStateOf(false) }
+    var showDeleteBookDialog by remember { mutableStateOf(false) }
+    var editTitleInput by remember { mutableStateOf("") }
+    var editAuthorInput by remember { mutableStateOf("") }
+    var editCategoryInput by remember { mutableStateOf("") }
+
     fun refreshBookmarksAndNotes() {
         coroutineScope.launch {
             allBookmarks = bookRepository?.getAllBookmarks() ?: emptyList()
@@ -587,7 +603,11 @@ fun HomeScreen(
                             val heroBook = displayBooks.first()
                             ContinueReadingHeroCard(
                                 book = heroBook,
-                                onClick = { onBookClick(heroBook.id.toLongOrNull() ?: 1L, heroBook.currentPage) }
+                                onClick = { onBookClick(heroBook.id.toLongOrNull() ?: 1L, heroBook.currentPage) },
+                                onMoreClick = {
+                                    selectedBookForAction = heroBook
+                                    showBookActionMenu = true
+                                }
                             )
 
                             Spacer(modifier = Modifier.height(26.dp))
@@ -626,7 +646,11 @@ fun HomeScreen(
                                 items(displayBooks) { book ->
                                     BookCardItem(
                                         book = book,
-                                        onClick = { onBookClick(book.id.toLongOrNull() ?: 1L, book.currentPage) }
+                                        onClick = { onBookClick(book.id.toLongOrNull() ?: 1L, book.currentPage) },
+                                        onMoreClick = {
+                                            selectedBookForAction = book
+                                            showBookActionMenu = true
+                                        }
                                     )
                                 }
                             }
@@ -720,6 +744,10 @@ fun HomeScreen(
                                     BookCardItem(
                                         book = book,
                                         onClick = { onBookClick(book.id.toLongOrNull() ?: 1L, book.currentPage) },
+                                        onMoreClick = {
+                                            selectedBookForAction = book
+                                            showBookActionMenu = true
+                                        },
                                         modifier = Modifier.fillMaxWidth()
                                     )
                                 }
@@ -1184,6 +1212,338 @@ fun HomeScreen(
                 }
             }
         }
+
+        // ====================================================================
+        // Book Management Dialogs
+        // ====================================================================
+
+        // 1. Book Options Sheet / Dialog
+        if (showBookActionMenu && selectedBookForAction != null) {
+            val currentSelected = selectedBookForAction!!
+            AlertDialog(
+                onDismissRequest = { showBookActionMenu = false },
+                title = {
+                    Column {
+                        Text(
+                            text = currentSelected.title,
+                            fontWeight = FontWeight.Bold,
+                            color = TextParchment,
+                            fontSize = 16.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "${currentSelected.author} • ${currentSelected.format} • ${currentSelected.category}",
+                            color = TextLinen,
+                            fontSize = 12.sp
+                        )
+                    }
+                },
+                text = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // Action 1: Đọc tiếp
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = CardSurface,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showBookActionMenu = false
+                                    onBookClick(currentSelected.id.toLongOrNull() ?: 1L, currentSelected.currentPage)
+                                }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("📖", fontSize = 16.sp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Đọc tiếp (Trang ${currentSelected.currentPage})",
+                                    color = TextParchment,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+
+                        // Action 2: Sửa thông tin
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = CardSurface,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showBookActionMenu = false
+                                    editTitleInput = currentSelected.title
+                                    editAuthorInput = currentSelected.author
+                                    editCategoryInput = currentSelected.category
+                                    showEditBookDialog = true
+                                }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("✏️", fontSize = 16.sp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Sửa thông tin tác phẩm",
+                                    color = TextParchment,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+
+                        // Action 3: Đánh dấu đã đọc / chưa đọc
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = CardSurface,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showBookActionMenu = false
+                                    coroutineScope.launch {
+                                        val newFinished = !currentSelected.isFinished
+                                        bookRepository?.toggleBookFinished(currentSelected.id.toLongOrNull() ?: 1L, newFinished)
+                                        snackbarHostState.showSnackbar(
+                                            if (newFinished) "Đã đánh dấu là hoàn thành!" else "Đã chuyển về trạng thái đang đọc"
+                                        )
+                                        stats = bookRepository?.getReadingStats() ?: stats
+                                    }
+                                }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(if (currentSelected.isFinished) "↩️" else "✅", fontSize = 16.sp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = if (currentSelected.isFinished) "Đánh dấu chưa đọc xong" else "Đánh dấu đã đọc xong",
+                                    color = TextParchment,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+
+                        // Action 4: Xóa sách
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = CardSurface,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showBookActionMenu = false
+                                    showDeleteBookDialog = true
+                                }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("🗑️", fontSize = 16.sp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Xóa sách khỏi thư viện",
+                                    color = Color(0xFFEF4444),
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showBookActionMenu = false }) {
+                        Text("Đóng", color = PrimaryHover, fontWeight = FontWeight.Bold)
+                    }
+                },
+                containerColor = SurfaceEspresso
+            )
+        }
+
+        // 2. Edit Book Dialog
+        if (showEditBookDialog && selectedBookForAction != null) {
+            val currentSelected = selectedBookForAction!!
+            AlertDialog(
+                onDismissRequest = { showEditBookDialog = false },
+                title = {
+                    Text(
+                        text = "Sửa thông tin sách",
+                        color = TextParchment,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                },
+                text = {
+                    Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                        Text("Tên sách:", color = TextLinen, fontSize = 12.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = editTitleInput,
+                            onValueChange = { editTitleInput = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = InputSurface,
+                                unfocusedContainerColor = InputSurface,
+                                focusedTextColor = TextParchment,
+                                unfocusedTextColor = TextParchment,
+                                focusedBorderColor = PrimaryTerracotta,
+                                unfocusedBorderColor = BorderCharcoal
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text("Tác giả:", color = TextLinen, fontSize = 12.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = editAuthorInput,
+                            onValueChange = { editAuthorInput = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = InputSurface,
+                                unfocusedContainerColor = InputSurface,
+                                focusedTextColor = TextParchment,
+                                unfocusedTextColor = TextParchment,
+                                focusedBorderColor = PrimaryTerracotta,
+                                unfocusedBorderColor = BorderCharcoal
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text("Thể loại / Danh mục:", color = TextLinen, fontSize = 12.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = editCategoryInput,
+                            onValueChange = { editCategoryInput = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = InputSurface,
+                                unfocusedContainerColor = InputSurface,
+                                focusedTextColor = TextParchment,
+                                unfocusedTextColor = TextParchment,
+                                focusedBorderColor = PrimaryTerracotta,
+                                unfocusedBorderColor = BorderCharcoal
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf("Tiểu thuyết", "Kinh điển", "Kỹ năng sống", "Triết học", "Khoa học", "Lịch sử").forEach { chipCat ->
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = CardSurface,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
+                                    modifier = Modifier.clickable { editCategoryInput = chipCat }
+                                ) {
+                                    Text(
+                                        text = chipCat,
+                                        color = PrimaryHover,
+                                        fontSize = 11.sp,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val finalTitle = editTitleInput.ifBlank { currentSelected.title }
+                            val finalAuthor = editAuthorInput.ifBlank { currentSelected.author }
+                            val finalCategory = editCategoryInput.ifBlank { currentSelected.category }
+                            coroutineScope.launch {
+                                bookRepository?.updateBookMetadata(
+                                    currentSelected.id.toLongOrNull() ?: 1L,
+                                    finalTitle,
+                                    finalAuthor,
+                                    finalCategory
+                                )
+                                showEditBookDialog = false
+                                snackbarHostState.showSnackbar("Đã cập nhật thông tin sách thành công!")
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryTerracotta)
+                    ) {
+                        Text("Lưu", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showEditBookDialog = false }) {
+                        Text("Hủy", color = TextLinen)
+                    }
+                },
+                containerColor = SurfaceEspresso
+            )
+        }
+
+        // 3. Delete Book Dialog
+        if (showDeleteBookDialog && selectedBookForAction != null) {
+            val currentSelected = selectedBookForAction!!
+            AlertDialog(
+                onDismissRequest = { showDeleteBookDialog = false },
+                title = {
+                    Text(
+                        text = "Xóa cuốn sách này?",
+                        color = Color(0xFFEF4444),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Bạn có chắc chắn muốn xóa tác phẩm \"${currentSelected.title}\" khỏi thư viện không? Toàn bộ dấu trang và ghi chú của cuốn sách cũng sẽ được dọn dẹp sạch khỏi thiết bị.",
+                        color = TextLinen,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                val bookId = currentSelected.id.toLongOrNull() ?: 1L
+                                val ok = bookRepository?.deleteBook(bookId) ?: false
+                                showDeleteBookDialog = false
+                                if (ok) {
+                                    snackbarHostState.showSnackbar("Đã xóa \"${currentSelected.title}\"")
+                                    stats = bookRepository?.getReadingStats() ?: stats
+                                    refreshBookmarksAndNotes()
+                                } else {
+                                    snackbarHostState.showSnackbar("Không thể xóa sách")
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                    ) {
+                        Text("Xác nhận xóa", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteBookDialog = false }) {
+                        Text("Giữ lại", color = TextParchment)
+                    }
+                },
+                containerColor = SurfaceEspresso
+            )
+        }
     }
 }
 
@@ -1369,7 +1729,8 @@ fun CategoryFilterRow(
 @Composable
 fun ContinueReadingHeroCard(
     book: BookItem,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onMoreClick: (() -> Unit)? = null
 ) {
     Card(
         modifier = Modifier
@@ -1404,18 +1765,29 @@ fun ContinueReadingHeroCard(
                     )
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = PrimarySubtle,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryHover.copy(alpha = 0.4f))
-                ) {
-                    Text(
-                        text = book.format,
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = PrimaryHover
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = PrimarySubtle,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryHover.copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = book.format,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryHover
+                        )
+                    }
+                    if (onMoreClick != null) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        IconButton(
+                            onClick = onMoreClick,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            MoreVertIcon(color = TextLinen, modifier = Modifier.size(16.dp))
+                        }
+                    }
                 }
             }
 
@@ -1511,6 +1883,7 @@ fun ContinueReadingHeroCard(
 fun BookCardItem(
     book: BookItem,
     onClick: () -> Unit,
+    onMoreClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier.width(148.dp)
 ) {
     Card(
@@ -1552,12 +1925,27 @@ fun BookCardItem(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            Text(
-                text = if (book.progress >= 1.0f) "Đã hoàn thành" else "${(book.progress * 100).toInt()}% đọc",
-                style = MaterialTheme.typography.labelSmall,
-                color = if (book.progress >= 1.0f) SuccessEmerald else PrimaryHover,
-                fontWeight = FontWeight.SemiBold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (book.isFinished || book.progress >= 0.99f) "Đã hoàn thành" else "${(book.progress * 100).toInt()}% đọc",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (book.isFinished || book.progress >= 0.99f) SuccessEmerald else PrimaryHover,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                if (onMoreClick != null) {
+                    IconButton(
+                        onClick = onMoreClick,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        MoreVertIcon(color = TextLinen, modifier = Modifier.size(15.dp))
+                    }
+                }
+            }
         }
     }
 }

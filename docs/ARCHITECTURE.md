@@ -11,32 +11,29 @@ flowchart TD
     subgraph UI ["Presentation Layer (Jetpack Compose)"]
         Activity["MainActivity"]
         Nav["Navigation Controller (Navigation 3)"]
-        Screens["Screens<br/>(HomeScreen, ReaderScreen, LibraryScreen, SettingsScreen)"]
-        VM["ViewModels<br/>(MainViewModel, ReaderViewModel, LibraryViewModel)"]
+        Screens["Screens<br/>(HomeScreen, ReaderScreen, GreetingScreen)"]
         Activity --> Nav --> Screens
-        Screens <--> VM
     end
 
     subgraph Domain ["Domain Layer (Business Logic)"]
-        UseCases["Use Cases<br/>(ImportBookUseCase, GetReadingProgressUseCase, SaveBookmarkUseCase)"]
-        Models["Domain Models<br/>(Book, Shelf, Bookmark, Annotation, ReaderSettings)"]
-        VM --> UseCases
-        UseCases --> Models
+        Models["Domain Models<br/>(BookRecord, BookmarkRecord, AnnotationRecord, ReaderTheme, ChapterItem, SearchResultItem)"]
     end
 
     subgraph Data ["Data & Storage Layer (Offline-First)"]
-        Repo["Data Repositories<br/>(BookRepository, AnnotationRepository, PreferencesRepository)"]
-        Room["Room Database (SQLite)<br/>(Metadata, Reading State, Highlights)"]
-        SAF["Android Storage Access Framework (SAF)<br/>(Local File Ingestion)"]
-        Parsers["Document Format Engines<br/>(EPUB Parser, Android PdfRenderer, TXT Parser)"]
-        DataStore["Jetpack DataStore<br/>(Reader Themes, Font Scaling, UI State)"]
+        Repo["Data Repositories<br/>(BookRepository, UserPreferencesRepository)"]
+        Db["Native SQLite Database (WAL mode)<br/>(FolioHavenDbHelper)"]
+        SAF["Android Storage Access Framework (SAF)<br/>(Local File Ingestion & JSON Interop)"]
+        Parsers["Document Format Engines<br/>(EPUB Parser, Android PdfRenderer, TXT Parser, MOBI PalmDOC LZ77 Parser)"]
+        TTS["Android Native Text-to-Speech Engine<br/>(TextToSpeech Service)"]
         
-        UseCases --> Repo
-        Repo --> Room
+        Repo --> Db
         Repo --> SAF
         Repo --> Parsers
-        Repo --> DataStore
     end
+
+    Screens --> Repo
+    Screens --> TTS
+    Repo --> Models
 ```
 
 ---
@@ -47,37 +44,21 @@ The presentation layer is built exclusively with **Jetpack Compose** (Material 3
 
 ### Unidirectional Data Flow (UDF)
 Every screen follows strict UDF:
-- **UI State:** Exposed by ViewModels as immutable `StateFlow<UiState>`.
-- **UI Events:** Screen components dispatch user actions (`BookClicked`, `PageScrolled`, `FilterChanged`) to ViewModels.
+- **UI State:** Exposed by Repositories and ViewModels as immutable `StateFlow<List<BookRecord>>`.
+- **UI Events:** Screen components dispatch user actions (`BookClicked`, `SearchQueryChanged`, `FilterSelected`, `PageScrolled`) to Repositories.
 - **Compose Rendering:** Screens collect state via `collectAsStateWithLifecycle()` to prevent background resource leaks.
-
-```kotlin
-// Example State Machine Pattern
-sealed interface ReaderUiState {
-    data object Loading : ReaderUiState
-    data class Content(
-        val book: Book,
-        val currentPage: Int,
-        val totalPages: Int,
-        val theme: ReaderTheme,
-        val fontSizeSp: Float
-    ) : ReaderUiState
-    data class Error(val message: String) : ReaderUiState
-}
-```
-
-### Navigation
-The app utilizes `androidx.navigation3` for type-safe route handling and declarative back stack management.
 
 ---
 
-## 🧠 2. Domain Layer
+## 🧠 2. Domain & Data Models
 
-The domain layer contains pure Kotlin business rules, independent of Android framework dependencies:
-- **`Book`**: Core domain entity representing an imported book (hash identifier, title, author, file format, cover URI, total chapters/pages).
-- **`ReadingState`**: Current reading position (page index or EPUB CFI locator, percentage completion, last read timestamp).
-- **`Annotation`**: Highlighted passages, color codes (Amber, Emerald, Azure, Rose), and attached user notes.
-- **Use Cases**: Encapsulate single business tasks such as `ImportBookUseCase`, `CalculateReadingStreakUseCase`, and `ExportNotesUseCase`.
+The domain models encapsulate literary library concepts:
+- **`BookRecord`**: Represents an ingested document (file hash identifier, title, author, file format, cover gradients, category, current page, total pages, progress percentage, completion status).
+- **`BookmarkRecord`**: Saved page markers with surrounding contextual snippets.
+- **`AnnotationRecord`**: Highlighted passages with 4 archival colors (Amber, Emerald, Azure, Rose) and attached reflection notes.
+- **`ChapterItem`**: Table of Contents entry containing chapter title and target page index.
+- **`SearchResultItem`**: In-book text search hit containing page number, chapter heading, surrounding context snippet, and matched keyword.
+- **`ReaderTheme`**: 4 Archival palettes (Day, Sepia Parchment, OLED Night, Dark Sepia).
 
 ---
 
@@ -85,25 +66,24 @@ The domain layer contains pure Kotlin business rules, independent of Android fra
 
 All persistence is local to the device with **zero cloud dependencies**:
 
-### Local SQLite Database (Room)
-- **`books` Table**: Stores book metadata, SHA-256 content deduplication hash, local file URI, and cover thumbnail path.
-- **`reading_progress` Table**: Tracks last read position, progress percentage, total read time in seconds, and completion status.
-- **`bookmarks` & `annotations` Tables**: Stores user bookmarks, highlights with character offsets, and markdown notes.
-- **`shelves` Table**: Manages custom user shelves (e.g., "Favorites", "Research", "Fiction").
+### Local SQLite Database (`FolioHavenDbHelper`)
+- **`books` Table**: Stores book metadata, SHA-256 binary deduplication hash, local file path, format, and category.
+- **`reading_progress` Table**: Tracks last read position, progress percentage, cumulative reading time in seconds, and completion status.
+- **`bookmarks` & `annotations` Tables**: Stores user bookmarks, highlights, and reflection notes with cascading foreign keys.
+- **WAL Mode & Foreign Keys:** SQLite operates in Write-Ahead Logging mode (`enableWriteAheadLogging()`) with active foreign key constraints.
 
 ### Storage Access Framework (SAF)
-Files are ingested via Android's `Intent.ACTION_OPEN_DOCUMENT` and persisted into app-specific private storage (`context.filesDir/books/`) to ensure the user retains complete ownership and privacy over their literary library.
+Files are ingested via Android's `ActivityResultContracts.OpenDocument()` and safely copied into app-private storage (`context.filesDir/books/`). User data can be backed up and restored via portable `foliohaven_backup.json` matching the desktop `Foliohaven-pc` schema.
 
-### Document Format Engines
-- **PDF Engine:** Powered by Android's native `android.graphics.pdf.PdfRenderer` for hardware-accelerated, crisp vector and page rendering.
-- **EPUB Engine:** Reflowable HTML/CSS renderer using Compose custom layout or embedded Android WebView with sandbox isolation, supporting dynamic font scaling, line height, and theme swaps.
-- **TXT Engine:** Fast UTF-8/ASCII paragraph reflow with automatic chapter detection.
-
----
-
-## 🔒 4. Privacy & Offline Guarantees
-
-In alignment with the parent [FolioHaven specification](https://github.com/FeurisPT2/foliohaven):
-1. **Zero Internet Permissions:** `android.permission.INTERNET` is excluded from `AndroidManifest.xml`.
-2. **Zero Analytics/Telemetry:** No third-party SDKs, crash trackers, or external network calls.
-3. **Local Export:** Bookmarks, annotations, and reading lists can be exported directly to local JSON/HTML files.
+### Document Format Engines (`DocumentEngine.kt`)
+1. **PDF Engine (`AndroidPdfDocumentReader`):**
+   - Native hardware-accelerated `android.graphics.pdf.PdfRenderer` rendering crisp ARGB_8888 bitmaps for display.
+2. **Clean-Room EPUB Reflow Engine (`EpubDocumentReader`):**
+   - Pure Kotlin `ZipInputStream` decompressor that extracts manifest HTML/XHTML entries and `toc.ncx` / `nav.xhtml` Table of Contents without third-party bundle bloat.
+3. **MOBI / AZW Engine (`MobiDocumentReader`):**
+   - Clean-room Palm Database (PDB) header parser and PalmDOC LZ77 decompressor extracting and paginating text chunks.
+4. **Plain Text Engine (`PlainTextDocumentReader`):**
+   - Word-boundary paragraph chunking and regex chapter detection (`CHƯƠNG`, `PHẦN`, `CHAPTER`, `#`).
+5. **In-Book Text Search & Table of Contents:**
+   - Real-time search across all text pages returning surrounding context snippets.
+   - Chapter outline list with 1-tap direct page navigation.

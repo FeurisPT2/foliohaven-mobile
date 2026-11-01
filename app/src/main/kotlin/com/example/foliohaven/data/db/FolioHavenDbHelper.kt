@@ -307,6 +307,43 @@ class FolioHavenDbHelper(context: Context) : SQLiteOpenHelper(
         }
     }
 
+    fun updateBookMetadata(bookId: Long, title: String, author: String, category: String): Boolean {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put("title", title.trim())
+            put("author", author.trim())
+            put("category", category.trim())
+            put("updated_at", currentTimestamp())
+        }
+        return db.update("books", values, "id = ?", arrayOf(bookId.toString())) > 0
+    }
+
+    fun deleteBook(bookId: Long, permanent: Boolean = false): Boolean {
+        val db = writableDatabase
+        return if (permanent) {
+            db.delete("books", "id = ?", arrayOf(bookId.toString())) > 0
+        } else {
+            val values = ContentValues().apply {
+                put("is_deleted", 1)
+                put("updated_at", currentTimestamp())
+            }
+            db.update("books", values, "id = ?", arrayOf(bookId.toString())) > 0
+        }
+    }
+
+    fun toggleBookFinished(bookId: Long, isFinished: Boolean): Boolean {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put("is_finished", if (isFinished) 1 else 0)
+            if (isFinished) {
+                put("progress_percent", 1.0f)
+            }
+            put("updated_at", currentTimestamp())
+        }
+        val rows = db.update("reading_progress", values, "book_id = ?", arrayOf(bookId.toString()))
+        return rows > 0
+    }
+
     fun addBookmark(bookId: Long, pageNumber: Int, title: String, snippet: String? = null): Long {
         val db = writableDatabase
         val values = ContentValues().apply {

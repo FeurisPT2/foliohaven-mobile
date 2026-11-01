@@ -14,8 +14,9 @@ flowchart LR
     P3["Phase 3<br/>Reading Experience & Canvas<br/>(COMPLETED)"]
     P4["Phase 4<br/>Library & Search Views<br/>(COMPLETED)"]
     P5["Phase 5<br/>Advanced Annotations & Interop<br/>(COMPLETED)"]
+    P6["Phase 6<br/>MOBI Engine & Book Management<br/>(COMPLETED)"]
 
-    P0 --> P1 --> P2 --> P3 --> P4 --> P5
+    P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> P6
 ```
 
 ---
@@ -81,7 +82,7 @@ flowchart LR
 - [x] **Live Search Bar:**
   - Functional `BasicTextField` with search icon, clear button, and real-time title/author filtering.
 - [x] **Dynamic Category Filter Chips:**
-  - Filters books dynamically by format ("EPUB", "PDF") or genre ("Tiểu thuyết", "Kỹ năng sống", "Kinh điển").
+  - Filters books dynamically by format ("EPUB", "PDF", "MOBI") or genre ("Tiểu thuyết", "Kỹ năng sống", "Kinh điển").
 - [x] **Multi-Tab Bottom Navigation:**
   - **Tab 0 (Home):** Continue Reading Hero, 3D Book Carousel, Reading Stats.
   - **Tab 1 (Library):** 2-Column Responsive Grid of all indexed books with counts.
@@ -101,3 +102,24 @@ flowchart LR
   - Native Android `TextToSpeech` service read-aloud with speaker audio toggle and automated lifecycle management.
 - [x] **Cross-Client Import/Export (.json):**
   - Portable JSON backup export and import format compatible with `Foliohaven-pc` and web portal via Android SAF.
+- [x] **Greeting & Onboarding Flow:**
+  - Ambient glow logo, 3 feature pillars, reading palette picker, sample books toggle, and persistent completion state in [`GreetingScreen.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/greeting/GreetingScreen.kt).
+
+---
+
+### Phase 6: MOBI Engine, Search, TOC & Shelf Management ✅ *(Completed)*
+- [x] **MOBI / AZW PalmDOC LZ77 Engine:**
+  - Clean-room decompression of Palm Database (PDB) records without third-party dependencies in [`DocumentEngine.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/data/reader/DocumentEngine.kt).
+- [x] **Table of Contents (TOC) & Chapter Navigation:**
+  - Chapter detection and outline parsing across EPUB, Plain Text, and MOBI formats.
+  - Dedicated interactive TOC dialog with 1-tap jump and current chapter highlighting in [`ReaderScreen.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/reader/ReaderScreen.kt).
+- [x] **In-Book Live Text Search:**
+  - Fast background search across all text pages/chapters with hit counters and surrounding context snippets.
+- [x] **Reading Experience Customization:**
+  - Modal display settings (`Aa`) supporting 4 reading palettes, font scaling, line-height multipliers (`1.4x`, `1.6x`, `1.8x`, `2.0x`), and margins (`16dp`, `24dp`, `32dp`).
+  - Active session timer tracking seconds read and persisting to SQLite reading progress.
+- [x] **Book Management & Shelf Operations:**
+  - Book card overflow actions (`⋮`) for Hero, Carousel, and Library Grid in [`HomeScreen.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/HomeScreen.kt).
+  - Edit metadata dialog (Title, Author, Category with quick suggestions).
+  - Toggle mark finished / in-progress state.
+  - Confirmation dialog for safe book deletion from database and device storage.
