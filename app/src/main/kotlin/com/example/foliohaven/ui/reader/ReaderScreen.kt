@@ -18,12 +18,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import com.example.foliohaven.WindowWidthSizeClass
+import com.example.foliohaven.rememberWindowWidthSizeClass
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -230,6 +233,11 @@ fun ReaderScreen(
     var currentPage by remember { mutableIntStateOf(initialPage) }
     var totalPages by remember { mutableIntStateOf(1) }
     var pageContent by remember { mutableStateOf<PageContent?>(null) }
+
+    // Window Size Class for responsive Tablet & Fold adaptation
+    val windowSizeClass = rememberWindowWidthSizeClass()
+    val isCompact = windowSizeClass == WindowWidthSizeClass.COMPACT
+    var twoColumnMode by remember(isCompact) { mutableStateOf(!isCompact) }
 
     // Reading preferences
     var currentTheme by remember { mutableStateOf(initialTheme) }
@@ -509,55 +517,61 @@ fun ReaderScreen(
                     .fillMaxWidth()
                     .border(1.dp, BorderCharcoal, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    val progressFloat = if (totalPages > 0) currentPage.toFloat() / totalPages.toFloat() else 0f
-                    LinearProgressIndicator(
-                        progress = { progressFloat },
+                    Column(
                         modifier = Modifier
+                            .widthIn(max = 840.dp)
                             .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp)),
-                        color = PrimaryTerracotta,
-                        trackColor = BorderCharcoal
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(horizontal = 20.dp, vertical = 10.dp)
                     ) {
-                        IconButton(
-                            onClick = { if (currentPage > 1) loadPage(currentPage - 1) },
-                            enabled = currentPage > 1
-                        ) {
-                            Text("◀", color = if (currentPage > 1) PrimaryHover else TextMuted, fontSize = 16.sp)
-                        }
+                        val progressFloat = if (totalPages > 0) currentPage.toFloat() / totalPages.toFloat() else 0f
+                        LinearProgressIndicator(
+                            progress = { progressFloat },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp)),
+                            color = PrimaryTerracotta,
+                            trackColor = BorderCharcoal
+                        )
 
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "Trang $currentPage / $totalPages",
-                                color = TextParchment,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = "${(progressFloat * 100).toInt()}% hoàn thành",
-                                color = PrimaryHover,
-                                fontSize = 11.sp
-                            )
-                        }
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                        IconButton(
-                            onClick = { if (currentPage < totalPages) loadPage(currentPage + 1) },
-                            enabled = currentPage < totalPages
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("▶", color = if (currentPage < totalPages) PrimaryHover else TextMuted, fontSize = 16.sp)
+                            IconButton(
+                                onClick = { if (currentPage > 1) loadPage(currentPage - 1) },
+                                enabled = currentPage > 1
+                            ) {
+                                Text("◀", color = if (currentPage > 1) PrimaryHover else TextMuted, fontSize = 16.sp)
+                            }
+
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "Trang $currentPage / $totalPages",
+                                    color = TextParchment,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "${(progressFloat * 100).toInt()}% hoàn thành",
+                                    color = PrimaryHover,
+                                    fontSize = 11.sp
+                                )
+                            }
+
+                            IconButton(
+                                onClick = { if (currentPage < totalPages) loadPage(currentPage + 1) },
+                                enabled = currentPage < totalPages
+                            ) {
+                                Text("▶", color = if (currentPage < totalPages) PrimaryHover else TextMuted, fontSize = 16.sp)
+                            }
                         }
                     }
                 }
@@ -568,11 +582,14 @@ fun ReaderScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(currentTheme.backgroundColor)
+                .background(currentTheme.backgroundColor),
+            contentAlignment = Alignment.TopCenter
         ) {
-            // Main Reading Canvas
+            // Main Reading Canvas - width constrained for optimal typography on Tablet & Fold
+            val maxMeasureWidth = if (twoColumnMode && !isCompact) 1120.dp else 760.dp
             Column(
                 modifier = Modifier
+                    .widthIn(max = maxMeasureWidth)
                     .fillMaxSize()
                     .padding(horizontal = horizontalMarginDp.dp, vertical = 16.dp)
                     .verticalScroll(scrollState)
@@ -592,13 +609,19 @@ fun ReaderScreen(
                     }
 
                     is PageContent.PdfPage -> {
-                        Image(
-                            bitmap = content.bitmap.asImageBitmap(),
-                            contentDescription = "Trang PDF ${content.pageIndex}",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                        )
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                bitmap = content.bitmap.asImageBitmap(),
+                                contentDescription = "Trang PDF ${content.pageIndex}",
+                                modifier = Modifier
+                                    .widthIn(max = 840.dp)
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                            )
+                        }
                     }
 
                     is PageContent.Text -> {
@@ -610,14 +633,74 @@ fun ReaderScreen(
                             color = currentTheme.textColor,
                             modifier = Modifier.padding(bottom = 16.dp)
                         )
-                        Text(
-                            text = content.content,
-                            fontFamily = FontFamily.Serif,
-                            fontSize = fontSizeSp.sp,
-                            lineHeight = (fontSizeSp * lineHeightMultiplier).sp,
-                            color = currentTheme.textColor,
-                            textAlign = TextAlign.Justify
-                        )
+                        if (twoColumnMode && !isCompact) {
+                            val rawParagraphs = content.content.split("\n\n").filter { it.isNotBlank() }
+                            val paragraphs = if (rawParagraphs.size > 1) {
+                                rawParagraphs
+                            } else {
+                                val lines = content.content.split("\n").filter { it.isNotBlank() }
+                                if (lines.size > 1) {
+                                    lines
+                                } else {
+                                    val sentences = content.content.split(". ").filter { it.isNotBlank() }
+                                    if (sentences.size > 4) {
+                                        val half = sentences.size / 2
+                                        listOf(
+                                            sentences.take(half).joinToString(". ") + ".",
+                                            sentences.drop(half).joinToString(". ")
+                                        )
+                                    } else {
+                                        listOf(content.content)
+                                    }
+                                }
+                            }
+                            val midIndex = (paragraphs.size + 1) / 2
+                            val leftText = paragraphs.take(midIndex).joinToString("\n\n")
+                            val rightText = paragraphs.drop(midIndex).joinToString("\n\n")
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(28.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = leftText,
+                                        fontFamily = FontFamily.Serif,
+                                        fontSize = fontSizeSp.sp,
+                                        lineHeight = (fontSizeSp * lineHeightMultiplier).sp,
+                                        color = currentTheme.textColor,
+                                        textAlign = TextAlign.Justify
+                                    )
+                                }
+                                if (rightText.isNotBlank()) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(1.dp)
+                                            .padding(vertical = 4.dp)
+                                            .background(currentTheme.textColor.copy(alpha = 0.15f))
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = rightText,
+                                            fontFamily = FontFamily.Serif,
+                                            fontSize = fontSizeSp.sp,
+                                            lineHeight = (fontSizeSp * lineHeightMultiplier).sp,
+                                            color = currentTheme.textColor,
+                                            textAlign = TextAlign.Justify
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = content.content,
+                                fontFamily = FontFamily.Serif,
+                                fontSize = fontSizeSp.sp,
+                                lineHeight = (fontSizeSp * lineHeightMultiplier).sp,
+                                color = currentTheme.textColor,
+                                textAlign = TextAlign.Justify
+                            )
+                        }
                     }
 
                     is PageContent.Error -> {
@@ -708,6 +791,7 @@ fun ReaderScreen(
     if (showTocSheet) {
         val tocItems = documentReader?.tableOfContents ?: emptyList()
         AlertDialog(
+            modifier = Modifier.widthIn(max = 540.dp),
             onDismissRequest = { showTocSheet = false },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -798,6 +882,7 @@ fun ReaderScreen(
     // ========================================================================
     if (showSearchSheet) {
         AlertDialog(
+            modifier = Modifier.widthIn(max = 540.dp),
             onDismissRequest = { showSearchSheet = false },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -927,6 +1012,7 @@ fun ReaderScreen(
     // ========================================================================
     if (showDisplaySettingsSheet) {
         AlertDialog(
+            modifier = Modifier.widthIn(max = 540.dp),
             onDismissRequest = { showDisplaySettingsSheet = false },
             title = {
                 Text(
@@ -1066,6 +1152,46 @@ fun ReaderScreen(
                             }
                         }
                     }
+
+                    // 5. Layout Mode (Tablet & Foldable)
+                    if (!isCompact) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Chế độ dàn trang (Tablet / Fold):",
+                            color = TextLinen,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(
+                                false to "📄 1 Cột tập trung",
+                                true to "📖 2 Trang (Cột đôi)"
+                            ).forEach { (mode, label) ->
+                                val isSel = twoColumnMode == mode
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSel) PrimarySubtle else CardSurface,
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        width = if (isSel) 1.5.dp else 1.dp,
+                                        color = if (isSel) PrimaryTerracotta else BorderCharcoal
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { twoColumnMode = mode }
+                                        .padding(vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = label,
+                                        color = if (isSel) PrimaryHover else TextParchment,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -1082,6 +1208,7 @@ fun ReaderScreen(
     // ========================================================================
     if (showAddAnnotationDialog) {
         AlertDialog(
+            modifier = Modifier.widthIn(max = 540.dp),
             onDismissRequest = { showAddAnnotationDialog = false },
             title = {
                 Text(
@@ -1212,6 +1339,7 @@ fun ReaderScreen(
     // ========================================================================
     if (showBookmarksSheet) {
         AlertDialog(
+            modifier = Modifier.widthIn(max = 540.dp),
             onDismissRequest = { showBookmarksSheet = false },
             title = {
                 Text(

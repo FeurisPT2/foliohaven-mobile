@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -45,6 +46,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -79,6 +83,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -527,17 +532,32 @@ fun HomeScreen(
         }
     }
 
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = {
-            FolioHavenBottomBar(
+    val windowSizeClass = rememberWindowWidthSizeClass()
+    val isCompact = windowSizeClass == WindowWidthSizeClass.COMPACT
+
+    Row(modifier = modifier.fillMaxSize()) {
+        if (!isCompact) {
+            FolioHavenNavigationRail(
                 selectedTab = selectedTab,
                 onTabSelected = { selectedTab = it }
             )
-        },
-        floatingActionButton = {
+        }
+
+        Scaffold(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            containerColor = MaterialTheme.colorScheme.background,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            bottomBar = {
+                if (isCompact) {
+                    FolioHavenBottomBar(
+                        selectedTab = selectedTab,
+                        onTabSelected = { selectedTab = it }
+                    )
+                }
+            },
+            floatingActionButton = {
             FloatingActionButton(
                 onClick = {
                     filePickerLauncher.launch(
@@ -607,7 +627,8 @@ fun HomeScreen(
                                 onMoreClick = {
                                     selectedBookForAction = heroBook
                                     showBookActionMenu = true
-                                }
+                                },
+                                isCompact = isCompact
                             )
 
                             Spacer(modifier = Modifier.height(26.dp))
@@ -650,7 +671,8 @@ fun HomeScreen(
                                         onMoreClick = {
                                             selectedBookForAction = book
                                             showBookActionMenu = true
-                                        }
+                                        },
+                                        modifier = if (isCompact) Modifier.width(148.dp) else Modifier.width(168.dp)
                                     )
                                 }
                             }
@@ -733,10 +755,15 @@ fun HomeScreen(
                                 }
                             }
                         } else {
+                            val libraryGridCells = when (windowSizeClass) {
+                                WindowWidthSizeClass.EXPANDED -> GridCells.Adaptive(minSize = 175.dp)
+                                WindowWidthSizeClass.MEDIUM -> GridCells.Adaptive(minSize = 160.dp)
+                                WindowWidthSizeClass.COMPACT -> GridCells.Fixed(2)
+                            }
                             LazyVerticalGrid(
-                                columns = GridCells.Fixed(2),
-                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                columns = libraryGridCells,
+                                contentPadding = PaddingValues(horizontal = if (isCompact) 16.dp else 24.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
                                 modifier = Modifier.fillMaxSize()
                             ) {
@@ -837,9 +864,12 @@ fun HomeScreen(
                                 }
                             }
                         } else {
-                            LazyColumn(
+                            val bookmarkGridCells = if (isCompact) GridCells.Fixed(1) else GridCells.Adaptive(minSize = 340.dp)
+                            LazyVerticalGrid(
+                                columns = bookmarkGridCells,
                                 modifier = Modifier.fillMaxSize(),
                                 verticalArrangement = Arrangement.spacedBy(10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 contentPadding = PaddingValues(bottom = 80.dp)
                             ) {
                                 if (showBookmarks) {
@@ -1221,6 +1251,7 @@ fun HomeScreen(
         if (showBookActionMenu && selectedBookForAction != null) {
             val currentSelected = selectedBookForAction!!
             AlertDialog(
+                modifier = Modifier.widthIn(max = 520.dp),
                 onDismissRequest = { showBookActionMenu = false },
                 title = {
                     Column {
@@ -1377,6 +1408,7 @@ fun HomeScreen(
         if (showEditBookDialog && selectedBookForAction != null) {
             val currentSelected = selectedBookForAction!!
             AlertDialog(
+                modifier = Modifier.widthIn(max = 520.dp),
                 onDismissRequest = { showEditBookDialog = false },
                 title = {
                     Text(
@@ -1498,6 +1530,7 @@ fun HomeScreen(
         if (showDeleteBookDialog && selectedBookForAction != null) {
             val currentSelected = selectedBookForAction!!
             AlertDialog(
+                modifier = Modifier.widthIn(max = 520.dp),
                 onDismissRequest = { showDeleteBookDialog = false },
                 title = {
                     Text(
@@ -1545,6 +1578,7 @@ fun HomeScreen(
             )
         }
     }
+}
 }
 
 @Composable
@@ -1730,7 +1764,8 @@ fun CategoryFilterRow(
 fun ContinueReadingHeroCard(
     book: BookItem,
     onClick: () -> Unit,
-    onMoreClick: (() -> Unit)? = null
+    onMoreClick: (() -> Unit)? = null,
+    isCompact: Boolean = true
 ) {
     Card(
         modifier = Modifier
@@ -1742,92 +1777,79 @@ fun ContinueReadingHeroCard(
         border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        if (!isCompact) {
+            // Adaptive Wide Hero Layout for Tablet & Unfolded Foldables
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(SuccessEmerald)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "ĐANG ĐỌC TIẾP",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = PrimaryHover,
-                        letterSpacing = 0.8.sp
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = PrimarySubtle,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryHover.copy(alpha = 0.4f))
-                    ) {
-                        Text(
-                            text = book.format,
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = PrimaryHover
-                        )
-                    }
-                    if (onMoreClick != null) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        IconButton(
-                            onClick = onMoreClick,
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            MoreVertIcon(color = TextLinen, modifier = Modifier.size(16.dp))
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Row(modifier = Modifier.fillMaxWidth()) {
                 ArchivalBookCover(
                     book = book,
-                    modifier = Modifier.size(width = 72.dp, height = 104.dp),
+                    modifier = Modifier.size(width = 86.dp, height = 126.dp),
                     isHero = true
                 )
 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(20.dp))
 
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.SpaceBetween
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(SuccessEmerald)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = book.title,
-                            fontFamily = FontFamily.Serif,
-                            color = TextParchment,
-                            style = MaterialTheme.typography.titleMedium,
+                            text = "ĐANG ĐỌC TIẾP",
+                            style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
+                            color = PrimaryHover,
+                            letterSpacing = 0.8.sp
                         )
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = book.author,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextLinen
-                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = PrimarySubtle,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryHover.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = book.format,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = PrimaryHover
+                            )
+                        }
                     }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = book.title,
+                        fontFamily = FontFamily.Serif,
+                        color = TextParchment,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "${book.author} • Thể loại: ${book.category}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextLinen
+                    )
 
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(0.9f),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1837,7 +1859,7 @@ fun ContinueReadingHeroCard(
                             color = TextMuted
                         )
                         Text(
-                            text = "${(book.progress * 100).toInt()}%",
+                            text = "${(book.progress * 100).toInt()}% hoàn thành",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = PrimaryHover
@@ -1849,31 +1871,179 @@ fun ContinueReadingHeroCard(
                     LinearProgressIndicator(
                         progress = { book.progress },
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(5.dp)
-                            .clip(RoundedCornerShape(2.5.dp)),
+                            .fillMaxWidth(0.9f)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
                         color = PrimaryTerracotta,
                         trackColor = BorderCharcoal
                     )
                 }
+
+                Spacer(modifier = Modifier.width(20.dp))
+
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    if (onMoreClick != null) {
+                        IconButton(
+                            onClick = onMoreClick,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            MoreVertIcon(color = TextLinen, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                    Button(
+                        onClick = onClick,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryTerracotta),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+                    ) {
+                        PlayTriangle(color = Color.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Tiếp tục đọc ▶",
+                            fontFamily = FontFamily.SansSerif,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.5.sp
+                        )
+                    }
+                }
             }
+        } else {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(SuccessEmerald)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "ĐANG ĐỌC TIẾP",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryHover,
+                            letterSpacing = 0.8.sp
+                        )
+                    }
 
-            Spacer(modifier = Modifier.height(14.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = PrimarySubtle,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryHover.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = book.format,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = PrimaryHover
+                            )
+                        }
+                        if (onMoreClick != null) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            IconButton(
+                                onClick = onMoreClick,
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                MoreVertIcon(color = TextLinen, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
 
-            Button(
-                onClick = onClick,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryTerracotta)
-            ) {
-                PlayTriangle(color = Color.White)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Tiếp tục đọc ngay",
-                    fontFamily = FontFamily.SansSerif,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.5.sp
-                )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    ArchivalBookCover(
+                        book = book,
+                        modifier = Modifier.size(width = 72.dp, height = 104.dp),
+                        isHero = true
+                    )
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = book.title,
+                                fontFamily = FontFamily.Serif,
+                                color = TextParchment,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = book.author,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextLinen
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Trang ${book.currentPage} / ${book.totalPages}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextMuted
+                            )
+                            Text(
+                                text = "${(book.progress * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = PrimaryHover
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        LinearProgressIndicator(
+                            progress = { book.progress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(5.dp)
+                                .clip(RoundedCornerShape(2.5.dp)),
+                            color = PrimaryTerracotta,
+                            trackColor = BorderCharcoal
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Button(
+                    onClick = onClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTerracotta)
+                ) {
+                    PlayTriangle(color = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Tiếp tục đọc ngay",
+                        fontFamily = FontFamily.SansSerif,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.5.sp
+                    )
+                }
             }
         }
     }
@@ -2082,6 +2252,111 @@ fun FolioHavenBottomBar(
             icon = { MoreVertIcon(color = if (selectedTab == 3) PrimaryHover else TextMuted) },
             label = { Text("Cài đặt", fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = PrimaryHover,
+                selectedTextColor = PrimaryHover,
+                unselectedTextColor = TextMuted,
+                indicatorColor = PrimarySubtle
+            )
+        )
+    }
+}
+
+enum class WindowWidthSizeClass {
+    COMPACT, MEDIUM, EXPANDED
+}
+
+@Composable
+fun rememberWindowWidthSizeClass(): WindowWidthSizeClass {
+    val configuration = LocalConfiguration.current
+    return when {
+        configuration.screenWidthDp >= 840 -> WindowWidthSizeClass.EXPANDED
+        configuration.screenWidthDp >= 600 -> WindowWidthSizeClass.MEDIUM
+        else -> WindowWidthSizeClass.COMPACT
+    }
+}
+
+@Composable
+fun FolioHavenNavigationRail(
+    selectedTab: Int,
+    onTabSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    NavigationRail(
+        containerColor = SurfaceEspresso,
+        modifier = modifier
+            .fillMaxHeight()
+            .border(
+                width = 1.dp,
+                color = BorderCharcoal,
+                shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
+            ),
+        header = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(top = 16.dp, bottom = 12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, BorderCharcoal, RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_foliohaven_logo),
+                        contentDescription = "FolioHaven Logo",
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            }
+        }
+    ) {
+        Spacer(modifier = Modifier.height(12.dp))
+        NavigationRailItem(
+            selected = selectedTab == 0,
+            onClick = { onTabSelected(0) },
+            icon = { HomeIcon(color = if (selectedTab == 0) PrimaryHover else TextMuted) },
+            label = { Text("Trang chủ", fontSize = 11.sp, fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) },
+            colors = NavigationRailItemDefaults.colors(
+                selectedIconColor = PrimaryHover,
+                selectedTextColor = PrimaryHover,
+                unselectedTextColor = TextMuted,
+                indicatorColor = PrimarySubtle
+            )
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        NavigationRailItem(
+            selected = selectedTab == 1,
+            onClick = { onTabSelected(1) },
+            icon = { BookShelfIcon(color = if (selectedTab == 1) PrimaryHover else TextMuted) },
+            label = { Text("Thư viện", fontSize = 11.sp, fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) },
+            colors = NavigationRailItemDefaults.colors(
+                selectedIconColor = PrimaryHover,
+                selectedTextColor = PrimaryHover,
+                unselectedTextColor = TextMuted,
+                indicatorColor = PrimarySubtle
+            )
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        NavigationRailItem(
+            selected = selectedTab == 2,
+            onClick = { onTabSelected(2) },
+            icon = { BookmarkRibbon(color = if (selectedTab == 2) PrimaryHover else TextMuted) },
+            label = { Text("Dấu trang", fontSize = 11.sp, fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal) },
+            colors = NavigationRailItemDefaults.colors(
+                selectedIconColor = PrimaryHover,
+                selectedTextColor = PrimaryHover,
+                unselectedTextColor = TextMuted,
+                indicatorColor = PrimarySubtle
+            )
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        NavigationRailItem(
+            selected = selectedTab == 3,
+            onClick = { onTabSelected(3) },
+            icon = { MoreVertIcon(color = if (selectedTab == 3) PrimaryHover else TextMuted) },
+            label = { Text("Cài đặt", fontSize = 11.sp, fontWeight = if (selectedTab == 3) FontWeight.Bold else FontWeight.Normal) },
+            colors = NavigationRailItemDefaults.colors(
                 selectedIconColor = PrimaryHover,
                 selectedTextColor = PrimaryHover,
                 unselectedTextColor = TextMuted,
