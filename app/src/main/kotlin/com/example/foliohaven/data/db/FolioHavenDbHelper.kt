@@ -576,6 +576,40 @@ class FolioHavenDbHelper(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    /**
+     * Resets all reading progress records in the `reading_progress` table:
+     * - Current page reset to 1
+     * - Current CFI reset to null
+     * - Progress percent reset to 0.0
+     * - Reading time seconds reset to 0
+     * - Finished flag reset to 0
+     * - Last opened timestamp reset to empty string (clearing reading streak)
+     * - Updated at set to current timestamp
+     *
+     * Books table, bookmarks table, and annotations table are 100% PRESERVED.
+     *
+     * @return true if update completed successfully without errors.
+     */
+    fun clearReadingHistory(): Boolean {
+        val db = writableDatabase
+        val now = currentTimestamp()
+        val values = ContentValues().apply {
+            put("current_page", 1)
+            putNull("current_cfi")
+            put("progress_percent", 0.0f)
+            put("reading_time_seconds", 0)
+            put("is_finished", 0)
+            put("last_opened_at", "")
+            put("updated_at", now)
+        }
+        return try {
+            db.update("reading_progress", values, null, null)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     fun exportUserDataJson(): String {
         val root = JSONObject()
         root.put("client", "FolioHaven-Mobile")

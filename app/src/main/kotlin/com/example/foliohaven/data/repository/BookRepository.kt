@@ -3,6 +3,10 @@ package com.example.foliohaven.data.repository
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import com.example.foliohaven.data.ImportBackupResult
+import com.example.foliohaven.data.LibraryStorageStats
+import com.example.foliohaven.data.MetadataBackupManager
+import com.example.foliohaven.data.StorageManager
 import com.example.foliohaven.data.db.FolioHavenDbHelper
 import com.example.foliohaven.data.model.AnnotationRecord
 import com.example.foliohaven.data.model.BookRecord
@@ -18,8 +22,16 @@ import java.io.FileOutputStream
 import java.io.InputStream
 import java.security.MessageDigest
 
-class BookRepository(private val context: Context) {
-    private val dbHelper = FolioHavenDbHelper(context)
+class BookRepository(
+    private val context: Context,
+    injectedDbHelper: FolioHavenDbHelper? = null,
+    injectedStorageManager: StorageManager? = null,
+    injectedPreferencesRepository: UserPreferencesRepository? = null
+) {
+    private val dbHelper = injectedDbHelper ?: FolioHavenDbHelper(context)
+    private val storageManager = injectedStorageManager ?: StorageManager(context, dbHelper)
+    private val preferencesRepository = injectedPreferencesRepository
+    private val backupManager = MetadataBackupManager(dbHelper, preferencesRepository)
 
     private val _booksFlow = MutableStateFlow<List<BookRecord>>(emptyList())
     val booksFlow: StateFlow<List<BookRecord>> = _booksFlow.asStateFlow()
@@ -126,17 +138,53 @@ class BookRepository(private val context: Context) {
         dbHelper.deleteAnnotation(annotationId)
     }
 
-    suspend fun exportUserDataJson(): String = withContext(Dispatchers.IO) {
-        dbHelper.exportUserDataJson()
+    suspend fun getLibraryStorageStats(): LibraryStorageStats = withContext(Dispatchers.IO) {
+        storageManager.getLibraryStorageStats()
     }
 
-    suspend fun importUserDataJson(jsonString: String): Result<Pair<Int, Int>> = withContext(Dispatchers.IO) {
+    suspend fun clearCache(): Boolean = withContext(Dispatchers.IO) {
+        storageManager.clearCache()
+    }
+
+    suspend fun clearReadingHistory(): Boolean = withContext(Dispatchers.IO) {
+        val success = dbHelper.clearReadingHistory()
+        if (success) {
+            refreshBooks()
+        }
+        success
+    }
+
+    suspend fun exportMetadataJson(): String = withContext(Dispatchers.IO) {
+        backupManager.exportMetadataJson()
+    }
+
+    suspend fun exportUserDataJson(): String = withContext(Dispatchers.IO) {
+        backupManager.exportMetadataJson()
+    }
+
+    suspend fun importMetadataJson(jsonString: String): Result<ImportBackupResult> = withContext(Dispatchers.IO) {
         try {
-            val result = dbHelper.importUserDataJson(jsonString)
+            val result = backupManager.importMetadataJson(jsonString)
             refreshBooks()
             Result.success(result)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    suspend fun importUserDataJson(jsonString: String): Result<Pair<Int, Int>> = withContext(Dispatchers.IO) {
+        try {
+            val result = backupManager.importMetadataJson(jsonString)
+            refreshBooks()
+            Result.success(Pair(result.bookmarksRestored, result.annotationsRestored))
+        } catch (e: Exception) {
+            try {
+                val legacyRes = dbHelper.importUserDataJson(jsonString)
+                refreshBooks()
+                Result.success(legacyRes)
+            } catch (fallbackEx: Exception) {
+                Result.failure(e)
+            }
         }
     }
 

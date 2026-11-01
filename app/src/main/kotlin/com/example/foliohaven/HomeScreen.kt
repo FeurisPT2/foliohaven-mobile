@@ -91,6 +91,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.foliohaven.data.db.FolioHavenDbHelper
 import com.example.foliohaven.data.model.BookRecord
 import com.example.foliohaven.data.repository.BookRepository
+import com.example.foliohaven.data.repository.UserPreferencesRepository
+import com.example.foliohaven.ui.settings.SettingsGearIcon
+import com.example.foliohaven.ui.settings.SettingsScreen
 import com.example.foliohaven.ui.reader.getHighlightColor
 import com.example.foliohaven.ui.theme.BadgeEpub
 import com.example.foliohaven.ui.theme.BadgeMobi
@@ -416,12 +419,14 @@ fun ArchivalBookCover(
 fun HomeScreen(
     modifier: Modifier = Modifier,
     bookRepository: BookRepository? = null,
+    preferencesRepository: UserPreferencesRepository? = null,
     onBookClick: (Long, Int) -> Unit = { _, _ -> },
     onShowGreeting: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val actualPreferences = preferencesRepository ?: remember(context) { UserPreferencesRepository(context) }
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var selectedCategory by remember { mutableStateOf("Tất cả sách") }
@@ -1049,196 +1054,13 @@ fun HomeScreen(
                 }
 
                 3 -> {
-                    // TAB 3: SETTINGS & ECOSYSTEM
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(20.dp)
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        Text(
-                            text = "Cài đặt & Hệ sinh thái",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = TextParchment,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // Offline Security Card
-                        Card(
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = CardSurface),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryPressed),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "🔒 100% Offline & Riêng tư",
-                                    fontWeight = FontWeight.Bold,
-                                    color = PrimaryHover,
-                                    fontSize = 15.sp
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "FolioHaven không thu thập dữ liệu cá nhân, không chứa quảng cáo và không yêu cầu đăng nhập tài khoản đám mây.",
-                                    color = TextLinen,
-                                    fontSize = 13.sp,
-                                    lineHeight = 18.sp
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // Backup & Restore Card (JSON Interop)
-                        Card(
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = CardSurface),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "💾 Sao lưu & Trao đổi dữ liệu (.json)",
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextParchment,
-                                    fontSize = 15.sp
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "Xuất hoặc nhập toàn bộ tiến trình đọc sách, danh sách dấu trang và ghi chú dạng tệp JSON tiêu chuẩn tương thích với FolioHaven PC và Web.",
-                                    color = TextLinen,
-                                    fontSize = 12.5.sp,
-                                    lineHeight = 17.sp
-                                )
-                                Spacer(modifier = Modifier.height(14.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Button(
-                                        onClick = { exportJsonLauncher.launch("foliohaven_backup.json") },
-                                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryTerracotta),
-                                        shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text("Xuất JSON", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                    }
-                                    Button(
-                                        onClick = { importJsonLauncher.launch(arrayOf("application/json", "text/*", "*/*")) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = CardSurfaceHover),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
-                                        shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text("Nhập JSON", color = TextParchment, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                    }
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // Seed Sample Books Card (Optional on-demand)
-                        Card(
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = CardSurface),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "📖 Thư viện tác phẩm mẫu",
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextParchment,
-                                    fontSize = 15.sp
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "Nạp 4 tác phẩm văn học kinh điển (Sherlock Holmes, Chiến Tranh & Hòa Bình, Đắc Nhân Tâm, Nhà Giả Kim) để trải nghiệm đọc ngay.",
-                                    color = TextLinen,
-                                    fontSize = 12.5.sp,
-                                    lineHeight = 17.sp
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Button(
-                                    onClick = {
-                                        coroutineScope.launch {
-                                            bookRepository?.seedDefaultBooksIfEmpty()
-                                            val latestStats = bookRepository?.getReadingStats()
-                                            if (latestStats != null) stats = latestStats
-                                            snackbarHostState.showSnackbar("Đã nạp 4 tác phẩm kinh điển mẫu thành công!")
-                                        }
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = CardSurfaceHover),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text("Nạp 4 sách kinh điển mẫu", color = PrimaryHover, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // Welcome Screen Revisit Card
-                        Card(
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = CardSurface),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "✨ Giới thiệu FolioHaven",
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextParchment,
-                                    fontSize = 15.sp
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "Xem lại màn hình chào mừng, triết lý đọc sách tĩnh tâm và các tính năng cốt lõi của ứng dụng.",
-                                    color = TextLinen,
-                                    fontSize = 12.5.sp,
-                                    lineHeight = 17.sp
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Button(
-                                    onClick = onShowGreeting,
-                                    colors = ButtonDefaults.buttonColors(containerColor = CardSurfaceHover),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderCharcoal),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text("Xem lại màn hình chào", color = PrimaryHover, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(18.dp))
-
-                        Text(
-                            text = "Hệ sinh thái FolioHaven",
-                            fontWeight = FontWeight.Bold,
-                            color = TextParchment,
-                            fontSize = 14.sp
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        EcosystemLinkItem("Web Portal", "https://github.com/FeurisPT2/foliohaven", "Vercel / HTML5")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        EcosystemLinkItem("PC Desktop Client", "https://github.com/FeurisPT2/Foliohaven-pc", "Flutter / Dart")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        EcosystemLinkItem("Mobile Android Client", "https://github.com/FeurisPT2/foliohaven-mobile", "Jetpack Compose / Kotlin")
-
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Text(
-                            text = "Phiên bản: 1.0.0 (Native Android Compose)",
-                            color = TextMuted,
-                            fontSize = 12.sp,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+                    // TAB 3: SETTINGS SCREEN
+                    SettingsScreen(
+                        bookRepository = bookRepository,
+                        preferencesRepository = actualPreferences,
+                        onShowGreeting = onShowGreeting,
+                        snackbarHostState = snackbarHostState
+                    )
                 }
             }
         }
@@ -2249,7 +2071,7 @@ fun FolioHavenBottomBar(
         NavigationBarItem(
             selected = selectedTab == 3,
             onClick = { onTabSelected(3) },
-            icon = { MoreVertIcon(color = if (selectedTab == 3) PrimaryHover else TextMuted) },
+            icon = { SettingsGearIcon(color = if (selectedTab == 3) PrimaryHover else TextMuted) },
             label = { Text("Cài đặt", fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = PrimaryHover,
@@ -2354,7 +2176,7 @@ fun FolioHavenNavigationRail(
         NavigationRailItem(
             selected = selectedTab == 3,
             onClick = { onTabSelected(3) },
-            icon = { MoreVertIcon(color = if (selectedTab == 3) PrimaryHover else TextMuted) },
+            icon = { SettingsGearIcon(color = if (selectedTab == 3) PrimaryHover else TextMuted) },
             label = { Text("Cài đặt", fontSize = 11.sp, fontWeight = if (selectedTab == 3) FontWeight.Bold else FontWeight.Normal) },
             colors = NavigationRailItemDefaults.colors(
                 selectedIconColor = PrimaryHover,

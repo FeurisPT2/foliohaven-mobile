@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity() {
             } else {
               HomeScreen(
                 bookRepository = repository,
+                preferencesRepository = preferences,
                 onBookClick = { clickedId, targetPage ->
                   activeReadingPage = targetPage
                   activeReadingBookId = clickedId
