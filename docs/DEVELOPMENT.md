@@ -1,6 +1,6 @@
 # FolioHaven Mobile Development Guide
 
-This guide covers setting up your local development environment, building the APK, executing tests, and debugging FolioHaven Mobile on Windows, macOS, or Linux.
+This guide covers setting up your local development environment, building APK artifacts, executing the test suite, and debugging FolioHaven Mobile on Windows, macOS, or Linux.
 
 ---
 
@@ -47,7 +47,7 @@ $env:PATH = $env:PATH.Replace('"', '')
 Run the following commands using the Gradle wrapper (`./gradlew` on macOS/Linux, `.\gradlew.bat` on Windows):
 
 ### Build Debug APK
-Compiles the application and generates the debug APK:
+Compiles the application and generates the debug APK with Compose tooling:
 ```bash
 ./gradlew assembleDebug
 ```
@@ -56,8 +56,18 @@ Output artifact:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### Run Unit Tests
-Executes local JVM unit tests:
+### Build Release APK
+Compiles an optimized, R8-minified production APK:
+```bash
+./gradlew assembleRelease
+```
+Output artifact:
+```
+app/build/outputs/apk/release/app-release-unsigned.apk
+```
+
+### Run Comprehensive Unit Tests
+Executes all 110 local JVM unit tests (covering document engines, database helper, user preferences repository, and storage manager):
 ```bash
 ./gradlew testDebugUnitTest
 ```
@@ -76,33 +86,48 @@ Run Android Lint to detect potential performance, accessibility, and code issues
 
 ---
 
-## 📐 Code Style & Architecture Guidelines
+## 📦 Release Artifacts & GitHub Distribution
 
-1. **State Management & Unidirectional Data Flow (UDF):**
+Pre-built binaries are tracked in the repository under [`release-apks/`](../release-apks/):
+- **[`release-apks/app-release.apk`](../release-apks/app-release.apk):** Production release build (~8.6 MB).
+- **[`release-apks/app-debug.apk`](../release-apks/app-debug.apk):** Debug build with Compose inspection support (~9.5 MB).
+
+Official tagged releases are published on GitHub:
+- [**GitHub Release v1.0.0**](https://github.com/FeurisPT2/foliohaven-mobile/releases/tag/v1.0.0)
+
+---
+
+## 📱 Multi-Device Adaptive Testing
+
+FolioHaven Mobile dynamically adjusts its layout between **Compact** (< 600dp), **Medium** (600dp - 839dp), and **Expanded** (≥ 840dp) screens:
+
+1. **Standard Phone Mode (< 600dp):**
+   - Test using standard phone emulators (e.g. Pixel 8, 1080x2400, 420dpi).
+   - Verifies bottom navigation bar, single-column reader, and 2-column library shelf.
+2. **Foldable Outer & Inner Screen Mode:**
+   - Test using foldable emulators (e.g. 7.6" Fold-in Display 1812x2176).
+   - Verifies seamless transition between folded phone mode and unfolded tablet mode.
+3. **Tablet Mode (≥ 600dp):**
+   - Test using tablet emulators (e.g. Pixel Tablet 2560x1600 or Galaxy Tab S9).
+   - Verifies left-hand `NavigationRail`, 3-column split hero card, responsive library grid, and **two-column printed book spread** (Trang đôi 2 cột như sách in).
+
+---
+
+## 📐 Architecture & Quality Guidelines
+
+1. **100% Privacy Floor (Strict Zero Internet):**
+   - **Never** declare `android.permission.INTERNET` in `AndroidManifest.xml`.
+   - **Never** import network analytics, crash telemetry, or ad SDKs.
+   - All document reading, searching, text-to-speech, and storage operations must work entirely offline.
+
+2. **State Management & Unidirectional Data Flow (UDF):**
    - State flows down via immutable data classes.
    - Events flow up via lambda callbacks.
    - Always collect states in Composables using `collectAsStateWithLifecycle()` to conserve battery and avoid leaking subscriptions in the background.
 
-2. **Compose Previews:**
-   - Every reusable component and screen should provide `@Preview` annotations for both Light and Dark themes:
-   ```kotlin
-   @Preview(showBackground = true, name = "Component - Light")
-   @Composable
-   fun ComponentLightPreview() {
-       FolioHavenComposeTheme(darkTheme = false) { Component() }
-   }
-
-   @Preview(showBackground = true, name = "Component - Dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
-   @Composable
-   fun ComponentDarkPreview() {
-       FolioHavenComposeTheme(darkTheme = true) { Component() }
-   }
-   ```
-
 3. **Zero-Dependency Vector Graphics:**
    - Avoid adding large third-party icon libraries.
-   - Use self-contained `@Composable` Canvas icons (like `HomeIcon`, `SearchIcon`, `BookShelfIcon`) or author vector drawables in `res/drawable/`.
+   - Author custom vector icons as `@Composable` Canvas drawing routines in [`SettingsIcons.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/icons/SettingsIcons.kt) and [`ReaderIcons.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/icons/ReaderIcons.kt).
 
-4. **100% Privacy Floor:**
-   - Never declare `android.permission.INTERNET` in `AndroidManifest.xml`.
-   - Never import network-reliant tracking or analytics SDKs.
+4. **Input Sanitization & Boundary Clamping:**
+   - All numeric settings (font size, line spacing, margins, speech rate, pitch) must be clamped to safe ranges in [`UserPreferencesRepository.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/data/repository/UserPreferencesRepository.kt) to prevent rendering exceptions.

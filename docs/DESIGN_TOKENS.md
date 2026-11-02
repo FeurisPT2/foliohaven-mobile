@@ -2,11 +2,11 @@
 
 FolioHaven Mobile's design language is synchronized with the upstream design specification in [`DESIGN.md`](https://github.com/FeurisPT2/foliohaven/blob/main/DESIGN.md) and [`replica/brand.md`](https://github.com/FeurisPT2/foliohaven/blob/main/replica/brand.md).
 
-It is implemented natively in Jetpack Compose in [`Color.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/theme/Color.kt), [`Theme.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/theme/Theme.kt), and [`Type.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/theme/Type.kt).
+It is implemented natively in Jetpack Compose in [`Color.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/theme/Color.kt), [`Theme.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/theme/Theme.kt), [`Shape.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/theme/Shape.kt), and [`Type.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/theme/Type.kt).
 
 ---
 
-## 🎨 Color Palette
+## 🎨 Color Tokens & Theming
 
 ### 1. Brand Accents
 | Token | Hex | Role | Contrast Ratio |
@@ -16,20 +16,37 @@ It is implemented natively in Jetpack Compose in [`Color.kt`](file:///C:/Users/e
 | `PrimaryPressed` | `#9A3412` | Pressed buttons, container borders | Deep bronze |
 | `PrimarySubtle` | `#1FC2410C` | 12% opacity tint for badges and selected tab pills | Ambient background |
 
-### 2. Luxury Archival Dark Theme (Default)
+### 2. Luxury Archival Dark Theme (Default Palette)
 | Token | Hex | Role | Description |
 | :--- | :--- | :--- | :--- |
-| `CanvasDark` | `#141110` | App root canvas | Deepest charcoal-black (OLED optimized) |
+| `CanvasDark` | `#141110` | App root canvas | Deepest charcoal-black (OLED power saving) |
 | `BackgroundDark` | `#181513` | Main screen background | Subtle warm charcoal |
-| `SurfaceEspresso` | `#1E1A18` | Top bar, Bottom bar | Rich espresso surface |
+| `SurfaceEspresso` | `#1E1A18` | Top bar, Navigation rail, Bottom bar | Rich espresso surface |
 | `CardSurface` | `#26211E` | Book cards, stat cards, dialogs | Elevated container |
 | `BorderCharcoal` | `#38312C` | Card borders, dividers | Crisp archival border |
 | `TextParchment` | `#FAF7F2` | Headings, primary text | Warm linen white (WCAG AAA) |
 | `TextLinen` | `#B5ACA3` | Secondary text, authors | Muted linen grey |
 | `TextMuted` | `#7E756D` | Labels, page numbers, timestamps | Bronze-grey |
 
-### 3. Four Archival Reading Canvas Modes
-Readers can toggle between 4 dedicated reading palettes:
+### 3. Material Design 3 Surface Container Roles
+To align with the Material 3 specification, surface elevations map to container tokens:
+- **`surfaceContainerLowest`:** `#110E0D` (Deepest inset surfaces)
+- **`surfaceContainerLow`:** `#151211` (Background behind cards)
+- **`surfaceContainer`:** `#1A1614` (Default card surfaces)
+- **`surfaceContainerHigh`:** `#201B19` (Elevated cards & 28dp pill search bar)
+- **`surfaceContainerHighest`:** `#28221F` (Hovered/pressed cards and active items)
+- **`surfaceTint`:** `PrimaryTerracotta` (`#C2410C`)
+- **`inverseSurface`:** `#FAF7F2`
+- **`inverseOnSurface`:** `#141110`
+
+### 4. Dynamic Color (Material You Monet)
+On **Android 12+ (API 31+)**, FolioHaven supports **Material You Dynamic Theming**:
+- Enabled or disabled at runtime via `useDynamicColor` in Settings.
+- When enabled, colors are dynamically generated from the user's system wallpaper via `dynamicDarkColorScheme(context)` and `dynamicLightColorScheme(context)`.
+- When disabled or on Android 11 and below, the app strictly uses FolioHaven's signature Terracotta and Archival Charcoal palettes.
+
+### 5. Four Archival Reading Canvas Modes
+Readers can toggle between 4 dedicated reading palettes in the reading canvas:
 | Mode | Background | Text Color | Ideal Lighting Condition |
 | :--- | :--- | :--- | :--- |
 | **Day** | `#FAF8F5` | `#1F1D1B` | Bright daylight, outdoor reading |
@@ -37,21 +54,35 @@ Readers can toggle between 4 dedicated reading palettes:
 | **Night (OLED)** | `#111111` | `#D4D4D8` | Bedtime, pure OLED power saving |
 | **Dark Sepia** | `#221A14` | `#D7C7B7` | Low ambient lighting, reduced eye strain |
 
-### 4. Format Badges
-| Format | Color Token | Hex |
-| :--- | :--- | :--- |
-| **EPUB** | `BadgeEpub` | `#0284C7` (Sky Blue) |
-| **PDF** | `BadgePdf` | `#E11D48` (Rose Crimson) |
-| **MOBI** | `BadgeMobi` | `#059669` (Forest Emerald) |
-| **TXT** | `BadgeTxt` | `#D97706` (Warm Amber) |
+### 6. Format Badges
+| Format | Color Token | Hex | Role |
+| :--- | :--- | :--- | :--- |
+| **EPUB** | `BadgeEpub` | `#0284C7` | Clean reflow EPUB books |
+| **PDF** | `BadgePdf` | `#E11D48` | Fixed layout PDF documents |
+| **MOBI** | `BadgeMobi` | `#059669` | PalmDOC LZ77 Kindle books |
+| **TXT** | `BadgeTxt` | `#D97706` | Plain text literature |
 
-### 5. Annotation Highlighters
+### 7. Annotation Highlighters
 | Highlighter | Hex | Semantics |
 | :--- | :--- | :--- |
 | **Amber** | `#FFE270` | General highlights, important passages |
 | **Emerald** | `#A8F29A` | Definitions, actionable insights |
 | **Azure** | `#7BE5F8` | Quotes, citations, references |
 | **Rose** | `#FFA0C5` | Questions, critical counterarguments |
+
+---
+
+## 🔲 Material 3 Shape System
+
+Defined in [`Shape.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/theme/Shape.kt) using `FolioHavenShapes`:
+
+| Token | Corner Radius | Component Usage |
+| :--- | :--- | :--- |
+| **ExtraSmall** | `4dp` | Badges, small tags, tooltips |
+| **Small** | `8dp` | Buttons, filter chips, input fields |
+| **Medium** | `12dp` | Cards, hero containers, TOC items |
+| **Large** | `16dp` | Dialogs, bottom sheets, modal cards |
+| **ExtraLarge** | `28dp` | Pill search bar, onboarding CTA, floating action button |
 
 ---
 
@@ -70,6 +101,22 @@ Body Medium      • Sans-Serif Reg   • 13sp / 18sp (Card content)
 Label Large      • Sans-Serif Semi  • 13sp / 18sp (Buttons & Action chips)
 Label Small      • Sans-Serif Bold  • 10sp / 14sp (Badges & Progress tags)
 ```
+
+---
+
+## 📐 Adaptive Display Measures & Ergonomics
+
+To deliver a first-class reading experience across form factors:
+
+| Screen Class | Viewport Width | Navigation Structure | Reading Canvas Layout | Max Content Measure |
+| :--- | :--- | :--- | :--- | :--- |
+| **Compact** | `< 600dp` (Phones) | Bottom Navigation Bar (`FolioHavenBottomBar`) | Single-column centered scroll | `widthIn(max = 760.dp)` |
+| **Medium** | `600dp - 839dp` (Foldables/Small Tablets) | Left Navigation Rail (`NavigationRail`) | Two-Column Book Spread with vertical gutter divider | `widthIn(max = 1120.dp)` |
+| **Expanded** | `≥ 840dp` (Large Tablets/Desktop) | Left Navigation Rail (`NavigationRail`) | Two-Column Book Spread with vertical gutter divider | `widthIn(max = 1120.dp)` |
+
+- **Adaptive Dialogs:** All modal dialogs are constrained to `widthIn(max = 540.dp)` to prevent awkward, stretched layouts on wide screens.
+- **Library Grid:** Uses `GridCells.Adaptive(minSize = 160.dp)` ensuring book cards always maintain an optimal aspect ratio.
+- **Notes Grid:** Uses `GridCells.Adaptive(minSize = 280.dp)` for clean card wrapping.
 
 ---
 

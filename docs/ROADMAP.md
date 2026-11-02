@@ -1,13 +1,13 @@
 # FolioHaven Mobile Implementation Roadmap
 
-This roadmap outlines the phased development plan to transform FolioHaven Mobile from a visual UI prototype into a production-grade, distraction-free Android e-reader.
+This roadmap documents the phased engineering progression of FolioHaven Mobile from an initial visual prototype into a feature-complete, production-grade Android e-reader (v1.0.0).
 
 ---
 
 ## 🗺️ Phases Overview
 
 ```mermaid
-flowchart LR
+flowchart TD
     P0["Phase 0<br/>UI Prototype & Identity<br/>(COMPLETED)"]
     P1["Phase 1<br/>Storage & Book Ingestion<br/>(COMPLETED)"]
     P2["Phase 2<br/>Document Reading Engines<br/>(COMPLETED)"]
@@ -15,8 +15,12 @@ flowchart LR
     P4["Phase 4<br/>Library & Search Views<br/>(COMPLETED)"]
     P5["Phase 5<br/>Advanced Annotations & Interop<br/>(COMPLETED)"]
     P6["Phase 6<br/>MOBI Engine & Book Management<br/>(COMPLETED)"]
+    P7["Phase 7<br/>Adaptive Layout (Tablet & Fold)<br/>(COMPLETED)"]
+    P8["Phase 8<br/>Settings & Storage Suite<br/>(COMPLETED)"]
+    P9["Phase 9<br/>Material Design 3 & Dynamic Color<br/>(COMPLETED)"]
+    P10["Phase 10<br/>Onboarding & Bilingual Support<br/>(COMPLETED)"]
 
-    P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> P6
+    P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7 --> P8 --> P9 --> P10
 ```
 
 ---
@@ -83,11 +87,11 @@ flowchart LR
   - Functional `BasicTextField` with search icon, clear button, and real-time title/author filtering.
 - [x] **Dynamic Category Filter Chips:**
   - Filters books dynamically by format ("EPUB", "PDF", "MOBI") or genre ("Tiểu thuyết", "Kỹ năng sống", "Kinh điển").
-- [x] **Multi-Tab Bottom Navigation:**
+- [x] **Multi-Tab Navigation:**
   - **Tab 0 (Home):** Continue Reading Hero, 3D Book Carousel, Reading Stats.
-  - **Tab 1 (Library):** 2-Column Responsive Grid of all indexed books with counts.
+  - **Tab 1 (Library):** Responsive Grid of all indexed books with counts.
   - **Tab 2 (Bookmarks):** Dedicated list of saved bookmarks with quotes and page numbers.
-  - **Tab 3 (Settings):** 100% Offline & Private Security pledge and official ecosystem links.
+  - **Tab 3 (Settings):** Security pledge, preferences, storage metrics, and ecosystem links.
 
 ---
 
@@ -103,7 +107,7 @@ flowchart LR
 - [x] **Cross-Client Import/Export (.json):**
   - Portable JSON backup export and import format compatible with `Foliohaven-pc` and web portal via Android SAF.
 - [x] **Greeting & Onboarding Flow:**
-  - Ambient glow logo, 3 feature pillars, reading palette picker, sample books toggle, and persistent completion state in [`GreetingScreen.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/greeting/GreetingScreen.kt).
+  - Initial onboarding implementation with brand identity and sample seeding.
 
 ---
 
@@ -123,3 +127,69 @@ flowchart LR
   - Edit metadata dialog (Title, Author, Category with quick suggestions).
   - Toggle mark finished / in-progress state.
   - Confirmation dialog for safe book deletion from database and device storage.
+
+---
+
+### Phase 7: Adaptive Layout for Tablets & Foldable Devices ✅ *(Completed)*
+- [x] **Window Size Class Detection:**
+  - Integrated `androidx.compose.material3.adaptive:adaptive` to evaluate `WindowWidthSizeClass` (Compact `< 600dp`, Medium `600dp - 839dp`, Expanded `≥ 840dp`).
+- [x] **Adaptive Navigation Scaffold:**
+  - Compact screens render bottom `FolioHavenBottomBar`.
+  - Medium & Expanded screens render ergonomic left-hand `NavigationRail` with brand monogram header and floating action button.
+- [x] **Tablet-Optimized Home & Library Shelves:**
+  - 3-column split layout for the continue reading Hero card on wide viewports (Cover + Metadata/Progress + Quick Action CTA).
+  - Adaptive grid for library shelf (`GridCells.Adaptive(minSize = 160.dp)`), seamlessly scaling from 2 to 6 columns.
+  - Responsive multi-column grid for bookmarks and annotations (`GridCells.Adaptive(minSize = 280.dp)`).
+- [x] **Two-Column Printed Book Spread (Trang đôi 2 cột như sách in):**
+  - Reader screen detects wide viewports (`width >= 600dp`) and automatically splits content into a two-column book spread with an archival vertical gutter divider.
+  - Preserves comfortable typographic measure (`widthIn(max = 1120.dp)`).
+  - Compact viewports remain centered with single-column measure (`widthIn(max = 760.dp)`).
+- [x] **Centered Adaptive Dialogs:**
+  - Constrained dialog widths (`widthIn(max = 540.dp)`) preventing stretched modals on ultrawide tablet screens.
+
+---
+
+### Phase 8: Production Settings Suite & Storage Management ✅ *(Completed)*
+- [x] **Comprehensive Preferences Repository:**
+  - Implemented [`UserPreferencesRepository.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/data/repository/UserPreferencesRepository.kt) backed by Android `SharedPreferences` with reactive `StateFlow`.
+  - Persists reading defaults (font size, line spacing, margins, preferred theme, two-column mode).
+  - Persists TTS defaults (speech rate, pitch, language preference).
+  - Validates and sanitizes boundary limits to prevent out-of-range crashes.
+- [x] **Storage Analytics & Maintenance Engine:**
+  - Implemented [`StorageManager.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/data/storage/StorageManager.kt) providing real-time disk breakdown (books size, cache size, SQLite database size).
+  - One-tap cache cleaning and confirmation-protected reading history reset.
+- [x] **Portable JSON Metadata Backup/Restore:**
+  - Implemented [`MetadataBackupManager.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/data/storage/MetadataBackupManager.kt) using SAF input/output streams with schema versioning.
+- [x] **Production Settings UI:**
+  - Created [`SettingsScreen.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/settings/SettingsScreen.kt) with live reading preview, TTS audio test button, and native Canvas icons in [`SettingsIcons.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/icons/SettingsIcons.kt).
+- [x] **110 Unit Tests:**
+  - Comprehensive unit test suite covering `UserPreferencesRepositoryTest`, `StorageManagerTest`, and parsers.
+
+---
+
+### Phase 9: Material Design 3 (M3) Upgrade & Material You ✅ *(Completed)*
+- [x] **Dynamic Color Monet Integration:**
+  - Added Material You dynamic wallpaper color integration on Android 12+ (API 31+) via `dynamicDarkColorScheme()` and `dynamicLightColorScheme()` in [`Theme.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/theme/Theme.kt).
+  - User-configurable toggle in Settings (`useDynamicColor`), falling back to FolioHaven's signature Terracotta (`#C2410C`) & Archival Charcoal palette.
+- [x] **M3 Shape Token System:**
+  - Defined [`FolioHavenShapes`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/theme/Shape.kt) with `RoundedCornerShape` tokens: ExtraSmall (4dp), Small (8dp), Medium (12dp), Large (16dp), ExtraLarge (28dp).
+- [x] **M3 Component Migration:**
+  - Upgraded category chips to Material 3 `FilterChip`.
+  - Migrated search bar to M3 28dp pill shape with `surfaceContainerHigh` container color.
+  - Adopted `ExtendedFloatingActionButton` and standard M3 elevation guidelines.
+
+---
+
+### Phase 10: Stepped Onboarding Carousel & Bi-lingual (EN/VI) Support ✅ *(Completed)*
+- [x] **3-Step Animated Onboarding Flow:**
+  - Rewrote [`GreetingScreen.kt`](file:///C:/Users/epicg/orca/foliohaven-mobile/app/src/main/kotlin/com/example/foliohaven/ui/greeting/GreetingScreen.kt) as a step-by-step carousel using `AnimatedContent` with smooth horizontal slide and fade transitions.
+  - Step 0: Welcome, language selection (Tiếng Việt & English), Brand monogram.
+  - Step 1: Core reading features (4 archival palettes, reflow engines, TTS).
+  - Step 2: Privacy pledge (100% offline, zero network permissions, sample books toggle, Start reading CTA).
+- [x] **Real-Time Language Selection:**
+  - Interactive language switcher toggle on the greeting screen and in Settings.
+  - Instant live UI language updates across the entire app without requiring an application restart.
+  - Automatically synchronizes default TTS locale with the chosen language.
+- [x] **Release Packaging & Distribution:**
+  - Built pre-compiled release (`app-release.apk`) and debug (`app-debug.apk`) binaries under `release-apks/`.
+  - Published official GitHub Release `v1.0.0` at [https://github.com/FeurisPT2/foliohaven-mobile/releases/tag/v1.0.0](https://github.com/FeurisPT2/foliohaven-mobile/releases/tag/v1.0.0).
